@@ -1,8 +1,22 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- Izin INTERNET wajib agar aplikasi bisa mengambil data dari API (Modul V) -->
+    <!-- ===================== PERMISSION ===================== -->
+    <!-- Permission diletakkan DI DALAM <manifest> tapi DI LUAR <application> -->
+
+    <!-- Izin INTERNET wajib agar aplikasi bisa mengambil data dari API (Modul V).
+         Tanpa ini, di APK release request http akan gagal. -->
     <uses-permission android:name="android.permission.INTERNET"/>
+
+    <!-- Izin untuk notifikasi (Modul VII - Contoh Program 7.3) -->
+    <!-- POST_NOTIFICATIONS: wajib di Android 13+ agar notifikasi boleh tampil -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <!-- 3 izin di bawah ini hanya dibutuhkan untuk SCHEDULED notification
+         (notif terjadwal yang tetap muncul walau aplikasi ditutup / HP restart) -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM"/>
+
     <application
-        android:label="Spaceflight News"
+        android:label="Hydra Games"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity
@@ -27,6 +41,29 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+
+        <!-- ===================== RECEIVER NOTIFIKASI ===================== -->
+        <!-- Diletakkan DI DALAM <application>, di bawah <activity> (Modul VII).
+             Receiver bertugas "menerima alarm" dari sistem Android saat waktu
+             scheduled notification tiba, lalu menampilkannya.
+             Untuk notifikasi langsung (immediate) sebenarnya tidak wajib,
+             tapi disertakan agar lengkap seperti di modul. -->
+        <receiver
+            android:exported="false"
+            android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver" />
+        <receiver
+            android:exported="false"
+            android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED"/>
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED"/>
+                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+            </intent-filter>
+        </receiver>
+        <receiver
+            android:exported="false"
+            android:name="com.dexterous.flutterlocalnotifications.FlutterLocalNotificationsReceiver"/>
+
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data
@@ -42,11 +79,6 @@
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
-        </intent>
-        <!-- Dibutuhkan url_launcher agar bisa membuka link https di browser (Android 11+) -->
-        <intent>
-            <action android:name="android.intent.action.VIEW"/>
-            <data android:scheme="https"/>
         </intent>
     </queries>
 </manifest>

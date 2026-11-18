@@ -1,16 +1,19 @@
 // =============================================================
 // LOGIN SCREEN (Modul VI - Shared Preferences)
 // =============================================================
-// - Login hanya bisa memakai akun yang sudah di-register (disimpan di Hive)
-// - Jika gagal -> SnackBar merah
-// - Jika berhasil -> simpan status login ke SharedPreferences, lalu ke Home
+// Ketentuan soal:
+//  - Kredensial: email & password (bebas apa aja) -> TIDAK ADA register
+//  - Informasi login disimpan di SharedPreferences
+//
+// Karena "bebas apa aja", validasinya cukup:
+//  - email & password tidak boleh kosong
+//  - email harus mengandung "@"
+// Jika soal kalian MEWAJIBKAN register, lihat branch `main`
+// (akun disimpan di Hive box 'users', login mencocokkan password).
 import 'package:flutter/material.dart';
-import 'package:hive_flutter/hive_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../models/user.dart';
-import 'home_screen.dart';
-import 'register_screen.dart';
+import 'main_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -20,11 +23,11 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  // Controller untuk membaca isi TextField
-  final _usernameController = TextEditingController();
+  // TextEditingController: "remote" untuk membaca/mengubah isi TextField
+  final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
 
-  // Menampilkan SnackBar merah untuk pesan error
+  // Fungsi bantu untuk SnackBar error berwarna merah
   void _showError(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message), backgroundColor: Colors.red),
@@ -32,102 +35,102 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   void _login() async {
-    final username = _usernameController.text.trim();
+    // trim() membuang spasi di awal & akhir input
+    final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
 
-    // Validasi: field tidak boleh kosong
-    if (username.isEmpty || password.isEmpty) {
-      _showError('Username dan password tidak boleh kosong!');
+    // ----- VALIDASI -----
+    if (email.isEmpty || password.isEmpty) {
+      _showError('Email dan password wajib diisi!');
+      return; // hentikan fungsi, jangan lanjut login
+    }
+    if (!email.contains('@')) {
+      _showError('Format email tidak valid!');
       return;
     }
 
-    // Ambil box 'users' yang sudah dibuka di main.dart
-    final box = Hive.box<User>('users');
-    // Akun disimpan dengan key = username (lihat register_screen.dart),
-    // jadi kita bisa langsung mengambilnya dengan box.get(username)
-    final User? user = box.get(username);
-
-    // Cek apakah akun ada dan password-nya cocok
-    if (user == null || user.password != password) {
-      _showError('Login Gagal! Pastikan sudah Register atau cek password.');
-      return;
-    }
-
-    // Login berhasil -> simpan ke SharedPreferences (key-value)
+    // ----- SIMPAN KE SHARED PREFERENCES -----
+    // Format: prefs.set<TipeData>('key', nilai)
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('isLogin', true);
-    await prefs.setString('username', username);
+    await prefs.setBool('isLogin', true); // penanda sudah login
+    await prefs.setString('email', email); // dipakai di halaman Profil
 
-    // "mounted" memastikan widget masih ada sebelum memakai context
-    // setelah proses async (await)
-    if (mounted) {
-      // pushReplacement: halaman login diganti oleh home,
-      // sehingga tombol back tidak kembali ke halaman login (Modul IV)
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => HomeScreen(username: username)),
-      );
-    }
+    // mounted: cek widget masih tampil setelah proses await.
+    // Wajib sebelum memakai context setelah await (kalau tidak -> warning).
+    if (!mounted) return;
+
+    // pushReplacement: Login DIGANTI MainScreen, jadi tombol back
+    // di MainScreen tidak bisa kembali ke Login (Modul IV)
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (context) => const MainScreen()),
+    );
   }
 
-  // dispose dipanggil saat halaman dihapus, untuk membersihkan controller
+  // dispose: membersihkan controller saat halaman ditutup (hemat memori)
   @override
   void dispose() {
-    _usernameController.dispose();
+    _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
+  }
+
+  // Dekorasi TextField dibuat fungsi agar tidak menulis ulang 2x
+  InputDecoration _inputDecoration(String label, IconData icon) {
+    return InputDecoration(
+      hintText: label,
+      prefixIcon: Icon(icon),
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Login'), centerTitle: true),
       body: Center(
-        // SingleChildScrollView supaya tidak overflow saat keyboard muncul
+        // SingleChildScrollView: mencegah error "overflow" saat keyboard muncul
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
           child: Column(
+            // start = rata kiri (logo & judul di kiri seperti contoh)
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // Logo: ikon gamepad biru
+              const Icon(Icons.gamepad, size: 96, color: Color(0xFF4A8CFF)),
+              const SizedBox(height: 8),
               const Text(
-                'Silakan Login',
-                style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600),
+                'Hydra Games',
+                style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 32),
               TextField(
-                controller: _usernameController,
-                decoration: InputDecoration(
-                  labelText: 'Username',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(24),
-                  ),
-                ),
+                controller: _emailController,
+                keyboardType: TextInputType.emailAddress, // keyboard ada "@"
+                decoration: _inputDecoration('Email', Icons.email),
               ),
               const SizedBox(height: 16),
               TextField(
                 controller: _passwordController,
-                obscureText: true, // menyembunyikan password (•••)
-                decoration: InputDecoration(
-                  labelText: 'Password',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(24),
-                  ),
-                ),
+                obscureText: true, // sembunyikan password
+                decoration: _inputDecoration('Password', Icons.lock),
               ),
               const SizedBox(height: 24),
-              ElevatedButton(onPressed: _login, child: const Text('Login')),
-              const SizedBox(height: 8),
-              TextButton(
-                // push biasa: halaman register ditumpuk di atas login,
-                // sehingga bisa kembali dengan tombol back
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const RegisterScreen(),
-                    ),
-                  );
-                },
-                child: const Text('Belum punya akun? Daftar di sini'),
+              // SizedBox lebar penuh -> tombol memanjang selebar layar
+              SizedBox(
+                width: double.infinity,
+                height: 52,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blue,
+                    foregroundColor: Colors.white,
+                    shape: const StadiumBorder(), // sudut bulat penuh
+                  ),
+                  onPressed: _login,
+                  child: const Text(
+                    'Login',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ),
               ),
             ],
           ),

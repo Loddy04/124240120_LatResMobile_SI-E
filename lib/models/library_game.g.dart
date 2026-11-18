@@ -1,35 +1,44 @@
 // GENERATED CODE - DO NOT MODIFY BY HAND
 
-part of 'user.dart';
+part of 'library_game.dart';
 
 // **************************************************************************
 // TypeAdapterGenerator
 // **************************************************************************
 
-class UserAdapter extends TypeAdapter<User> {
+class LibraryGameAdapter extends TypeAdapter<LibraryGame> {
   @override
   final int typeId = 0;
 
   @override
-  User read(BinaryReader reader) {
+  LibraryGame read(BinaryReader reader) {
     final numOfFields = reader.readByte();
     final fields = <int, dynamic>{
       for (int i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
     };
-    return User(
-      username: fields[0] as String,
-      password: fields[1] as String,
+    return LibraryGame(
+      id: fields[0] as int,
+      title: fields[1] as String,
+      thumbnail: fields[2] as String,
+      genre: fields[3] as String,
+      platform: fields[4] as String,
     );
   }
 
   @override
-  void write(BinaryWriter writer, User obj) {
+  void write(BinaryWriter writer, LibraryGame obj) {
     writer
-      ..writeByte(2)
+      ..writeByte(5)
       ..writeByte(0)
-      ..write(obj.username)
+      ..write(obj.id)
       ..writeByte(1)
-      ..write(obj.password);
+      ..write(obj.title)
+      ..writeByte(2)
+      ..write(obj.thumbnail)
+      ..writeByte(3)
+      ..write(obj.genre)
+      ..writeByte(4)
+      ..write(obj.platform);
   }
 
   @override
@@ -38,7 +47,7 @@ class UserAdapter extends TypeAdapter<User> {
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      other is UserAdapter &&
+      other is LibraryGameAdapter &&
           runtimeType == other.runtimeType &&
           typeId == other.typeId;
 }

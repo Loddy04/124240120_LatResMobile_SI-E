@@ -1,158 +1,134 @@
 // =============================================================
-// HOME SCREEN - Halaman Utama
+// HOME SCREEN - "Browse Games" (Modul III & V)
 // =============================================================
-// - AppBar menampilkan username yang login ("Hai, username!")
-// - 3 menu: News, Blog, Reports -> membuka ListScreen sesuai menu
-// - Tombol Log Out di bawah pilihan menu
+// Ketentuan soal:
+//  - daftar game ditampilkan dengan ListView
+//  - tiap item: thumbnail, nama, genre, platform
+//  - ada loading indicator saat load data
+//  - klik game -> masuk ke Detail Page
+//
+// POLA FETCH API YANG DIPAKAI (hafalkan, dipakai di hampir semua soal):
+//   1. Siapkan variabel: data, isLoading, errorMessage
+//   2. initState()  -> panggil fungsi fetch
+//   3. fetch        -> try { data = await Api...; } catch { error }
+//                      lalu setState agar UI di-build ulang
+//   4. build()      -> if loading: spinner
+//                      else if error: pesan error
+//                      else: tampilkan data
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
-import 'list_screen.dart';
-import 'login_screen.dart';
+import '../api/api_service.dart';
+import '../models/game.dart';
+import '../widgets/game_card.dart';
+import 'detail_screen.dart';
 
-class HomeScreen extends StatelessWidget {
-  // Username dikirim dari LoginScreen / main.dart lewat constructor
-  // (passing data antar halaman - Modul IV)
-  final String username;
+class HomeScreen extends StatefulWidget {
+  const HomeScreen({super.key});
 
-  const HomeScreen({super.key, required this.username});
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
 
-  void _logout(BuildContext context) async {
-    // Hapus data login dari SharedPreferences,
-    // sehingga saat aplikasi dibuka lagi user harus login ulang
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('isLogin');
-    await prefs.remove('username');
+class _HomeScreenState extends State<HomeScreen> {
+  // 1. VARIABEL STATE
+  List<Game> games = []; // data game dari API
+  bool isLoading = true; // true = sedang memuat
+  String? errorMessage; // null = tidak ada error
 
-    if (context.mounted) {
-      // pushAndRemoveUntil: pindah ke Login dan HAPUS semua halaman
-      // sebelumnya dari tumpukan, jadi tombol back tidak bisa kembali ke Home
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(builder: (context) => const LoginScreen()),
-        (route) => false,
-      );
+  // 2. initState: dipanggil SEKALI saat halaman pertama kali dibuat
+  @override
+  void initState() {
+    super.initState();
+    fetchGames();
+  }
+
+  // 3. FUNGSI FETCH
+  Future<void> fetchGames() async {
+    // Reset state (berguna saat tombol "Coba Lagi" ditekan)
+    setState(() {
+      isLoading = true;
+      errorMessage = null;
+    });
+
+    try {
+      final data = await ApiService.getGames();
+      setState(() {
+        games = data;
+        isLoading = false;
+      });
+    } catch (e) {
+      // Masuk ke sini jika: tidak ada internet, server error,
+      // atau format JSON tidak sesuai model
+      setState(() {
+        errorMessage = 'Gagal memuat game. Periksa koneksi internet.';
+        isLoading = false;
+      });
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Hai, $username!'), centerTitle: true),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          // Widget _MenuCard dibuat sendiri di bawah agar kode tidak berulang
-          const _MenuCard(
-            title: 'News',
-            menu: 'articles', // nama endpoint di API
-            icon: Icons.newspaper,
-            description:
-                'Get an overview of the latest SpaceFlight news, from various sources! Easily link your users to the right websites.',
-          ),
-          const _MenuCard(
-            title: 'Blog',
-            menu: 'blogs',
-            icon: Icons.article_outlined,
-            description:
-                'Blogs often provide a more detailed overview of launches and missions. A must-have for the serious spaceflight enthusiast.',
-          ),
-          const _MenuCard(
-            title: 'Reports',
-            menu: 'reports',
-            icon: Icons.analytics_outlined,
-            description:
-                'Space stations and other missions often publish their data. With SNAPI, you can include it in your app.',
-          ),
-          const SizedBox(height: 24),
-          // Tombol Log Out berwarna merah di bawah pilihan menu
-          Center(
-            child: ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red,
-                foregroundColor: Colors.white,
-              ),
-              onPressed: () => _logout(context),
-              child: const Text('Log Out'),
-            ),
-          ),
-        ],
+      // automaticallyImplyLeading: false -> tidak ada tombol back
+      appBar: AppBar(
+        title: const Text('Browse Games'),
+        automaticallyImplyLeading: false,
       ),
+      body: _buildBody(),
     );
   }
-}
 
-// Widget kustom untuk satu kartu menu.
-// Diawali "_" artinya private, hanya dipakai di file ini.
-class _MenuCard extends StatelessWidget {
-  final String title;
-  final String menu;
-  final IconData icon;
-  final String description;
+  // 4. TAMPILAN BERDASARKAN STATE
+  Widget _buildBody() {
+    // a. Loading
+    if (isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
 
-  const _MenuCard({
-    required this.title,
-    required this.menu,
-    required this.icon,
-    required this.description,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      elevation: 3,
-      margin: const EdgeInsets.only(bottom: 16),
-      // InkWell membuat Card bisa diklik dan memberi efek ripple
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: () {
-          // Kirim judul & nama menu ke ListScreen
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => ListScreen(title: title, menu: menu),
+    // b. Error -> pesan + tombol coba lagi
+    if (errorMessage != null) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min, // Column setinggi isinya saja
+          children: [
+            const Icon(Icons.wifi_off, size: 48, color: Colors.grey),
+            const SizedBox(height: 8),
+            Text(errorMessage!),
+            const SizedBox(height: 8),
+            ElevatedButton(
+              onPressed: fetchGames,
+              child: const Text('Coba Lagi'),
             ),
-          );
-        },
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
-              // Kotak ikon di sebelah kiri
-              Container(
-                width: 60,
-                height: 60,
-                decoration: BoxDecoration(
-                  color: Colors.deepPurple.shade50,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(icon, color: Colors.deepPurple, size: 32),
-              ),
-              const SizedBox(width: 16),
-              // Expanded agar teks mengisi sisa lebar dan bisa turun baris
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      description,
-                      style: const TextStyle(fontSize: 12, color: Colors.grey),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
+          ],
         ),
-      ),
+      );
+    }
+
+    // c. Data berhasil dimuat
+    // ListView.builder: membuat item SECARA MALAS (hanya yang terlihat
+    // di layar), cocok untuk data banyak (API ini berisi 400+ game)
+    return ListView.builder(
+      itemCount: games.length,
+      itemBuilder: (context, index) {
+        final game = games[index];
+        return GameCard(
+          title: game.title,
+          thumbnail: game.thumbnail,
+          genre: game.genre,
+          platform: game.platform,
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () {
+            // Kirim id game ke DetailScreen lewat constructor.
+            // DetailScreen akan mengambil detail lengkap dari API.
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => DetailScreen(gameId: game.id),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 }

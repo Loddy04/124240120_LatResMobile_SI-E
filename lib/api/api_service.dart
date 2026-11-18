@@ -1,46 +1,58 @@
 // =============================================================
 // API SERVICE (Modul V - "Class dengan Static Method")
 // =============================================================
-// Pusat semua fungsi untuk mengambil data dari API.
-// Memakai static method sehingga bisa dipanggil langsung
-// (ApiService.getList(...)) tanpa membuat object terlebih dahulu.
-import 'dart:convert';
+// Soal mewajibkan: kode fetch & parse API berada di FILE TERPISAH.
+// Semua komunikasi ke API dikumpulkan di sini, sehingga halaman (screen)
+// cukup memanggil ApiService.getGames() tanpa tahu detail http-nya.
+//
+// "static" artinya method bisa dipanggil langsung lewat nama class
+// (ApiService.getGames()) tanpa perlu membuat object (ApiService()).
+import 'dart:convert'; // untuk jsonDecode
 import 'package:http/http.dart' as http;
-import '../models/space_item.dart';
+
+import '../models/game.dart';
 
 class ApiService {
-  // Base URL API. Menu-nya nanti ditambahkan di belakang:
-  //   News    -> https://api.spaceflightnewsapi.net/v4/articles/
-  //   Blogs   -> https://api.spaceflightnewsapi.net/v4/blogs/
-  //   Reports -> https://api.spaceflightnewsapi.net/v4/reports/
-  static const String baseUrl = 'https://api.spaceflightnewsapi.net/v4';
+  static const String baseUrl = 'https://www.freetogame.com/api';
 
-  // Mengambil LIST data sesuai menu ('articles', 'blogs', 'reports').
-  static Future<List<SpaceItem>> getList(String menu) async {
-    final response = await http.get(Uri.parse('$baseUrl/$menu/'));
+  // ---------------------------------------------------------
+  // 1. Ambil SEMUA game -> GET https://www.freetogame.com/api/games
+  // ---------------------------------------------------------
+  // Future<...> = hasilnya baru ada "nanti" (menunggu internet),
+  // maka harus dipanggil dengan await di dalam fungsi async.
+  static Future<List<Game>> getGames() async {
+    final response = await http.get(Uri.parse('$baseUrl/games'));
 
+    // statusCode 200 = request berhasil
     if (response.statusCode == 200) {
-      // jsonDecode mengubah String JSON menjadi Map/List Dart
-      final data = jsonDecode(response.body);
-      // Data list ada di dalam key "results"
-      final List<dynamic> results = data['results'];
-      // Ubah setiap Map menjadi object SpaceItem lewat fromJson
-      return results.map((json) => SpaceItem.fromJson(json)).toList();
+      // PERHATIKAN BENTUK JSON-NYA!
+      // API ini langsung mengembalikan ARRAY: [ {...}, {...} ]
+      // (beda dengan API lain yang dibungkus object, misal {"results": [...]}
+      //  -> kalau begitu, ambil dulu: data['results'])
+      final List<dynamic> data = jsonDecode(response.body);
+
+      // Ubah setiap Map di dalam list menjadi object Game
+      return data.map((json) => Game.fromJson(json)).toList();
     } else {
-      throw Exception('Gagal memuat data $menu');
+      // throw -> lempar error, nanti ditangkap oleh try-catch di screen
+      throw Exception('Gagal memuat daftar game');
     }
   }
 
-  // Mengambil DETAIL satu data berdasarkan id-nya.
-  // Contoh: https://api.spaceflightnewsapi.net/v4/{menu}/{id}/
-  static Future<SpaceItem> getDetail(String menu, int id) async {
-    final response = await http.get(Uri.parse('$baseUrl/$menu/$id/'));
+  // ---------------------------------------------------------
+  // 2. Ambil DETAIL satu game -> GET .../api/game?id={id}
+  // ---------------------------------------------------------
+  // Perhatikan: detail memakai QUERY PARAMETER (?id=452),
+  // bukan path (/game/452). Ikuti persis format dari soal.
+  static Future<Game> getGameDetail(int id) async {
+    final response = await http.get(Uri.parse('$baseUrl/game?id=$id'));
 
     if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
-      return SpaceItem.fromJson(data);
+      // Detail mengembalikan SATU object: { ... }
+      final Map<String, dynamic> data = jsonDecode(response.body);
+      return Game.fromJson(data);
     } else {
-      throw Exception('Gagal memuat detail data');
+      throw Exception('Gagal memuat detail game');
     }
   }
 }

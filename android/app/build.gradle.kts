@@ -12,6 +12,11 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+        // [Modul VII] Desugaring WAJIB untuk flutter_local_notifications.
+        // Package ini memakai class Java (java.time) yang aslinya hanya ada di
+        // Android 8.0+. Desugaring "menyisipkan" implementasinya ke APK supaya
+        // tetap jalan di Android lama. Tanpa ini build akan GAGAL.
+        isCoreLibraryDesugaringEnabled = true
     }
 
     defaultConfig {
@@ -42,4 +47,10 @@ kotlin {
 
 flutter {
     source = "../.."
+}
+
+// [Modul VII] Pasangan dari isCoreLibraryDesugaringEnabled di atas.
+// Letaknya DI LUAR blok android { }, paling bawah file.
+dependencies {
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
 }
