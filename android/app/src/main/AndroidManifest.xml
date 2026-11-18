@@ -1,6 +1,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Izin INTERNET wajib agar aplikasi bisa mengambil data dari API (Modul V) -->
+    <uses-permission android:name="android.permission.INTERNET"/>
     <application
-        android:label="latihan_responsi"
+        android:label="Spaceflight News"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity
@@ -40,6 +42,11 @@
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
+        </intent>
+        <!-- Dibutuhkan url_launcher agar bisa membuka link https di browser (Android 11+) -->
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="https"/>
         </intent>
     </queries>
 </manifest>
