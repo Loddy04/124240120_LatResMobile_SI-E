@@ -1,13 +1,18 @@
 // =============================================================
-// FAVORITE SCREEN - Halaman Favorite
+// FAVORITE SCREEN
 // =============================================================
-// Menampilkan SEMUA data favorite (news, blog, report jadi satu).
-// Memakai ValueListenableBuilder sehingga list otomatis ter-update,
-// baik perubahan dilakukan di halaman ini maupun di halaman detail.
+// Soal:
+//  a) data favorit disimpan di SharedPreferences (lihat FavoriteService)
+//  b) hapus favorit dengan cara SWIPE        -> widget Dismissible
+//  c) SnackBar setelah karakter dihapus
+//  d) pesan jika daftar favorit masih kosong
+//
+// StatelessWidget cukup, karena perubahan diurus ValueListenableBuilder.
 import 'package:flutter/material.dart';
-import 'package:hive_flutter/hive_flutter.dart';
 
-import '../models/favorite.dart';
+import '../models/character.dart';
+import '../services/favorite_service.dart';
+import '../widgets/status_label.dart';
 import 'detail_screen.dart';
 
 class FavoriteScreen extends StatelessWidget {
@@ -15,77 +20,99 @@ class FavoriteScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Halaman ini cukup StatelessWidget karena perubahan UI
-    // sudah diurus oleh ValueListenableBuilder, bukan setState
-    return Scaffold(
-      appBar: AppBar(title: const Text('Favorite')),
-      body: ValueListenableBuilder(
-        // listenable() -> memberi tahu builder setiap ada perubahan di box
-        valueListenable: Hive.box<Favorite>('favorites').listenable(),
-        builder: (context, Box<Favorite> box, _) {
-          // Jika belum ada favorite, tampilkan pesan
-          if (box.isEmpty) {
-            return const Center(child: Text('Belum ada data favorite'));
-          }
+    return ValueListenableBuilder<List<Character>>(
+      valueListenable: FavoriteService.favorites,
+      builder: (context, favorites, _) {
+        // (d) daftar masih kosong
+        if (favorites.isEmpty) {
+          return const Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.favorite_border, size: 64, color: Colors.grey),
+                SizedBox(height: 8),
+                Text(
+                  'Belum ada karakter favorit',
+                  style: TextStyle(color: Colors.grey),
+                ),
+              ],
+            ),
+          );
+        }
 
-          // Ambil semua data favorite menjadi List
-          final favorites = box.values.toList();
+        return ListView.builder(
+          padding: const EdgeInsets.all(12),
+          itemCount: favorites.length,
+          itemBuilder: (context, index) {
+            final character = favorites[index];
 
-          return ListView.builder(
-            itemCount: favorites.length,
-            itemBuilder: (context, index) {
-              final fav = favorites[index];
-              return Card(
-                margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                child: ListTile(
-                  leading: SizedBox(
-                    width: 64,
-                    height: 48,
-                    child: Image.network(
-                      fav.imageUrl,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) {
-                        return const Icon(Icons.broken_image, size: 32);
-                      },
+            // (b) DISMISSIBLE: item bisa digeser untuk dihapus
+            return Dismissible(
+              // key WAJIB unik per item, supaya Flutter tahu item mana
+              // yang digeser. Pakai id karakter.
+              key: Key(character.id.toString()),
+              // Arah swipe: dari kanan ke kiri
+              direction: DismissDirection.endToStart,
+              // Latar merah + ikon tempat sampah yang terlihat saat digeser
+              background: Container(
+                alignment: Alignment.centerRight,
+                padding: const EdgeInsets.only(right: 20),
+                margin: const EdgeInsets.symmetric(vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.red,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.delete, color: Colors.white),
+              ),
+              // Dipanggil setelah item selesai digeser keluar layar
+              onDismissed: (direction) {
+                // Hapus dari favorit (otomatis tersimpan ke SP &
+                // memberi tahu semua halaman lewat ValueNotifier)
+                FavoriteService.remove(character.id);
+
+                // (c) SnackBar + tombol UNDO (bonus kecil)
+                ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('${character.name} dihapus dari favorit'),
+                    action: SnackBarAction(
+                      label: 'UNDO',
+                      onPressed: () => FavoriteService.add(character),
                     ),
                   ),
+                );
+              },
+              child: Card(
+                color: Colors.white,
+                margin: const EdgeInsets.symmetric(vertical: 4),
+                child: ListTile(
+                  leading: CircleAvatar(
+                    radius: 26,
+                    backgroundColor: Colors.grey.shade300,
+                    backgroundImage: NetworkImage(character.image),
+                    onBackgroundImageError: (error, stackTrace) {},
+                  ),
                   title: Text(
-                    fav.title,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
+                    character.name,
+                    style: const TextStyle(fontWeight: FontWeight.w600),
                   ),
-                  subtitle: Text(fav.author),
-                  // Tombol hati merah -> hapus dari favorite.
-                  // Setelah dihapus, ValueListenableBuilder otomatis
-                  // membangun ulang list sehingga item langsung hilang.
-                  trailing: IconButton(
-                    icon: const Icon(Icons.favorite, color: Colors.red),
-                    tooltip: 'Hapus dari favorite',
-                    onPressed: () {
-                      // fav adalah HiveObject, jadi bisa langsung delete()
-                      fav.delete();
-                      ScaffoldMessenger.of(context).hideCurrentSnackBar();
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Dihapus dari favorite')),
-                      );
-                    },
-                  ),
-                  // Klik item -> buka detail-nya lagi
+                  subtitle: StatusLabel(status: character.status),
+                  trailing: const Icon(Icons.chevron_left, color: Colors.grey),
                   onTap: () {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
                         builder: (context) =>
-                            DetailScreen(menu: fav.menu, id: fav.itemId),
+                            DetailScreen(characterId: character.id),
                       ),
                     );
                   },
                 ),
-              );
-            },
-          );
-        },
-      ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 }

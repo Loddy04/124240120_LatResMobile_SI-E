@@ -2,7 +2,7 @@
     <!-- Izin INTERNET wajib agar aplikasi bisa mengambil data dari API (Modul V) -->
     <uses-permission android:name="android.permission.INTERNET"/>
     <application
-        android:label="Spaceflight News"
+        android:label="Rick and Morty"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity
@@ -42,11 +42,5 @@
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
-        </intent>
-        <!-- Dibutuhkan url_launcher agar bisa membuka link https di browser (Android 11+) -->
-        <intent>
-            <action android:name="android.intent.action.VIEW"/>
-            <data android:scheme="https"/>
-        </intent>
-    </queries>
+        </intent>    </queries>
 </manifest>

@@ -1,46 +1,102 @@
 // =============================================================
-// API SERVICE (Modul V - "Class dengan Static Method")
+// API SERVICE (Modul V - Static Method)
 // =============================================================
-// Pusat semua fungsi untuk mengambil data dari API.
-// Memakai static method sehingga bisa dipanggil langsung
-// (ApiService.getList(...)) tanpa membuat object terlebih dahulu.
+// Semua request ke API Rick and Morty dikumpulkan di sini.
+//
+// Endpoint dari soal:
+//   List karakter   : /character
+//   Detail karakter : /character/{id}
+//   Filter status   : /character?status=alive | dead | unknown
+//   (bonus) Cari    : /character?name=rick
+//   Episode         : /episode
+//
+// Query parameter bisa DIGABUNG dengan "&":
+//   /character?name=rick&status=alive
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import '../models/space_item.dart';
+
+import '../models/character.dart';
+import '../models/episode.dart';
 
 class ApiService {
-  // Base URL API. Menu-nya nanti ditambahkan di belakang:
-  //   News    -> https://api.spaceflightnewsapi.net/v4/articles/
-  //   Blogs   -> https://api.spaceflightnewsapi.net/v4/blogs/
-  //   Reports -> https://api.spaceflightnewsapi.net/v4/reports/
-  static const String baseUrl = 'https://api.spaceflightnewsapi.net/v4';
+  static const String baseUrl = 'https://rickandmortyapi.com/api';
 
-  // Mengambil LIST data sesuai menu ('articles', 'blogs', 'reports').
-  static Future<List<SpaceItem>> getList(String menu) async {
-    final response = await http.get(Uri.parse('$baseUrl/$menu/'));
+  // ---------------------------------------------------------
+  // LIST KARAKTER (+ filter status & pencarian nama)
+  // ---------------------------------------------------------
+  // Parameter opsional ({...}) boleh tidak diisi:
+  //   ApiService.getCharacters()                       -> semua
+  //   ApiService.getCharacters(status: 'alive')        -> filter
+  //   ApiService.getCharacters(name: 'rick', status: 'dead')
+  static Future<List<Character>> getCharacters({
+    String? status,
+    String? name,
+  }) async {
+    // Susun query parameter dalam Map, lalu Uri yang merangkainya.
+    // Cara ini lebih aman daripada menyambung string manual, karena
+    // spasi/karakter khusus pada nama otomatis di-encode (misal "Morty Smith").
+    final Map<String, String> query = {};
+    if (status != null && status.isNotEmpty) query['status'] = status;
+    if (name != null && name.isNotEmpty) query['name'] = name;
+
+    final uri = Uri.parse('$baseUrl/character').replace(
+      queryParameters: query.isEmpty ? null : query,
+    );
+    final response = await http.get(uri);
 
     if (response.statusCode == 200) {
-      // jsonDecode mengubah String JSON menjadi Map/List Dart
       final data = jsonDecode(response.body);
-      // Data list ada di dalam key "results"
+      // Bentuk respons: {"info": {...}, "results": [ ... ]}
+      // -> list karakternya ada di key "results"
       final List<dynamic> results = data['results'];
-      // Ubah setiap Map menjadi object SpaceItem lewat fromJson
-      return results.map((json) => SpaceItem.fromJson(json)).toList();
+      return results.map((json) => Character.fromJson(json)).toList();
+    } else if (response.statusCode == 404) {
+      // KHUSUS API INI: jika pencarian/filter tidak menemukan apa pun,
+      // API membalas 404 {"error": "There is nothing here"}.
+      // Itu bukan error koneksi, jadi kembalikan list kosong saja.
+      return [];
     } else {
-      throw Exception('Gagal memuat data $menu');
+      throw Exception('Gagal memuat karakter');
     }
   }
 
-  // Mengambil DETAIL satu data berdasarkan id-nya.
-  // Contoh: https://api.spaceflightnewsapi.net/v4/{menu}/{id}/
-  static Future<SpaceItem> getDetail(String menu, int id) async {
-    final response = await http.get(Uri.parse('$baseUrl/$menu/$id/'));
+  // ---------------------------------------------------------
+  // DETAIL KARAKTER -> /character/{id}
+  // ---------------------------------------------------------
+  static Future<Character> getCharacterDetail(int id) async {
+    final response = await http.get(Uri.parse('$baseUrl/character/$id'));
 
     if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
-      return SpaceItem.fromJson(data);
+      // Detail langsung berupa SATU object (tanpa "results")
+      return Character.fromJson(jsonDecode(response.body));
     } else {
-      throw Exception('Gagal memuat detail data');
+      throw Exception('Gagal memuat detail karakter');
     }
+  }
+
+  // ---------------------------------------------------------
+  // SEMUA EPISODE (dengan PAGINATION)
+  // ---------------------------------------------------------
+  // API hanya memberi 20 data per halaman. Respons-nya:
+  //   {"info": {"next": "https://.../episode?page=2", ...}, "results": [...]}
+  // "next" berisi URL halaman berikutnya, dan bernilai null di halaman
+  // terakhir. Jadi kita ulangi request selama "next" tidak null.
+  static Future<List<Episode>> getEpisodes() async {
+    final List<Episode> episodes = [];
+    String? url = '$baseUrl/episode'; // halaman pertama
+
+    while (url != null) {
+      final response = await http.get(Uri.parse(url));
+      if (response.statusCode != 200) {
+        throw Exception('Gagal memuat episode');
+      }
+      final data = jsonDecode(response.body);
+      final List<dynamic> results = data['results'];
+      // addAll: tambahkan hasil halaman ini ke list utama
+      episodes.addAll(results.map((json) => Episode.fromJson(json)));
+      // pindah ke halaman berikutnya (null -> loop berhenti)
+      url = data['info']['next'];
+    }
+    return episodes;
   }
 }
