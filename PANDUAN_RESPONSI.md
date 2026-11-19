@@ -165,7 +165,7 @@ Contoh di branch `main`:
 | 3 | `android/gradle.properties`: tambahkan `kotlin.incremental=false` | Ya (khusus laptop ini, proyek di drive D:) |
 | 4 | `AndroidManifest.xml`: tambahkan `<uses-permission android:name="android.permission.INTERNET"/>` | Disarankan |
 | 5 | Jika pakai **url_launcher**: salin blok `<queries>` https dari `AndroidManifest.xml` | Jika ada tombol buka web |
-| 6 | Jika pakai **Hive**: setelah menulis model, jalankan `dart run build_runner build --delete-conflicting-outputs` | Jika pakai Hive |
+| 6 | Jika pakai **Hive**: setelah menulis model, jalankan `dart run build_runner build --delete-conflicting-outputs` (**tidak otomatis**, lihat [4.1](#41-apa-itu-build_runner-tidak-otomatis)) | Jika pakai Hive |
 | 7 | Jika pakai **notifikasi**: ikuti [bagian 8](#8--notifikasi-lengkap) (pubspec, `build.gradle.kts`, manifest, service, `main.dart`) | Jika bonus notifikasi |
 
 Package di `main`:
@@ -184,6 +184,60 @@ dev_dependencies:
 ```
 
 > Jalankan proyek kosong sekali di emulator **sebelum** menyalin kode, untuk memastikan konfigurasinya benar.
+
+### 4.1 Apa itu build_runner? (TIDAK otomatis)
+
+`build_runner` **tidak berjalan sendiri** saat membuat proyek baru atau saat `flutter run`.
+Kamu yang harus menjalankannya lewat terminal.
+
+**Untuk apa?** Hive tidak bisa langsung menyimpan class buatan kita (`User`, `Favorite`). Hive butuh
+**Adapter**, yaitu "penerjemah" yang mengubah object menjadi data yang bisa disimpan, dan sebaliknya.
+Kode Adapter itu panjang, jadi tidak ditulis manual: **build_runner yang menuliskannya otomatis.**
+
+```
+user.dart  (kamu tulis)
+   │  berisi @HiveType, @HiveField, dan  part 'user.g.dart';
+   │
+   ▼  jalankan build_runner
+   │
+user.g.dart (dibuat otomatis)  → berisi class UserAdapter
+   │
+   ▼
+main.dart:  Hive.registerAdapter(UserAdapter());   ← baru bisa dipakai
+```
+
+**Cara menjalankan:**
+
+1. Pastikan `pubspec.yaml` punya ini (lalu `flutter pub get`):
+   ```yaml
+   dev_dependencies:
+     hive_generator: ^2.0.1
+     build_runner: ^2.4.13
+   ```
+2. Buka **Terminal** di IDE (Android Studio: tab *Terminal* di bawah; VS Code: `Ctrl+J`).
+   Pastikan posisinya di **folder proyek** (folder yang berisi `pubspec.yaml`).
+3. Ketik:
+   ```
+   dart run build_runner build --delete-conflicting-outputs
+   ```
+4. Tunggu sampai muncul `Succeeded`. File `user.g.dart` (dan `favorite.g.dart` jika ada) muncul di `lib/models/`.
+
+**Kapan harus dijalankan?**
+
+| Situasi | Jalankan? |
+|---|---|
+| Baru membuat model Hive (`user.dart`, `favorite.dart`) | ✅ Ya |
+| Mengubah field model Hive (tambah / hapus / ganti nama / ganti tipe) | ✅ Ya, ulangi |
+| Mengubah model biasa yang **tidak** punya `@HiveType` (misal `space_item.dart`) | ❌ Tidak |
+| Mengubah halaman / screen / api_service | ❌ Tidak |
+
+**Tanda lupa menjalankan:** baris `part 'user.g.dart';` merah, dan `UserAdapter` / `FavoriteAdapter` merah
+di `main.dart` ("isn't defined"). Itu normal sebelum build_runner dijalankan, dan hilang setelahnya.
+
+> 💡 **Jalan pintas saat responsi:** jika `user.dart` disalin **tanpa diubah**, salin juga `user.g.dart`-nya dari repo.
+> File `.g.dart` adalah kode Dart biasa, jadi langsung jalan tanpa build_runner.
+> Tapi untuk `favorite.dart` (field-nya biasanya diubah sesuai soal), **tetap jalankan build_runner**,
+> karena `.g.dart` lama tidak cocok dengan field baru.
 
 ---
 
@@ -279,7 +333,7 @@ Ikuti berurutan. Setiap langkah menyebut **file mana yang disalin dari `main`** 
 
 | File | Ambil dari branch | Catatan |
 |---|---|---|
-| `lib/models/user.dart` (+ jalankan build_runner) | `main` | model akun Hive. `typeId: 0`, jangan sampai sama dengan model Hive lain |
+| `lib/models/user.dart` + `lib/models/user.g.dart` | `main` | model akun Hive. Jika keduanya disalin, tidak perlu build_runner ([4.1](#41-apa-itu-build_runner-tidak-otomatis)). `typeId: 0`, jangan sampai sama dengan model Hive lain |
 | `lib/screens/register_screen.dart` | `main` | – |
 | `lib/services/notification_service.dart` | `alternatif-sib` | lihat [bagian 8](#8--notifikasi-lengkap) |
 | `android/gradle.properties` → baris `kotlin.incremental=false` | `main` | khusus laptop ini |
@@ -441,6 +495,13 @@ Salin `lib/main.dart`, lalu cek:
 | `[UBAH-MAIN-4]` | `title` & `theme` | ganti judul & warna aplikasi |
 | `[UBAH-MAIN-5]` | `home: isLogin ? HomeScreen(...) : LoginScreen()` | nama halaman utamamu berbeda |
 
+> ⚠️ **Urutan penting:** `main.dart` dari `main` sudah memakai `FavoriteAdapter`. Supaya proyek tetap bisa build:
+> 1. **Salin juga `lib/models/favorite.dart` sekarang** (isinya biarkan dulu, field disesuaikan di Langkah 9).
+> 2. **Jalankan build_runner** → muncul `user.g.dart` & `favorite.g.dart`.
+>
+> Jika soal **tidak** memakai favorit Hive, hapus saja 3 baris favorit di `main.dart`
+> (`import 'models/favorite.dart'`, `registerAdapter(FavoriteAdapter())`, `openBox<Favorite>('favorites')`).
+
 ### Langkah 6 — Halaman utama
 
 Pilih sesuai soal:
@@ -465,6 +526,12 @@ Di `main.dart` `[UBAH-MAIN-5]` dan `login_screen.dart` `[UBAH-LOGIN-1]` & `[UBAH
 lalu isi daftar `_pages` dengan halaman-halamanmu.
 
 ### Langkah 7 — Halaman list (salin & ubah)
+
+> ⚠️ **Saling terhubung:** `list_screen.dart` meng-import `detail_screen.dart` & `favorite_screen.dart`,
+> dan `detail_screen.dart` meng-import `favorite.dart`. Jadi proyek baru bisa di-build setelah **ketiga halaman** ada.
+> Cara paling praktis: **salin `list_screen.dart`, `detail_screen.dart`, dan `favorite_screen.dart` sekaligus**,
+> lalu sesuaikan satu per satu (Langkah 7, 8, 9), baru jalankan.
+> (Alternatif: beri `//` pada import `favorite_screen.dart` dan tombol ♥ di AppBar list, lalu kembalikan nanti.)
 
 1. Salin `lib/screens/list_screen.dart`.
 2. `Ctrl+H`: `SpaceItem` → nama model-mu, `space_item.dart` → nama file model-mu.
@@ -498,6 +565,15 @@ lalu isi daftar `_pages` dengan halaman-halamanmu.
 ### Langkah 9 — Favorit
 
 Ikuti **[bagian 9](#9--favorit-lengkap)**: menambah, menampilkan, menghapus, dan variasinya (Hive / SharedPreferences, swipe, tombol ♥ di list).
+
+Urutan wajibnya (varian Hive):
+1. Ubah field `lib/models/favorite.dart` (`[UBAH-FAV-1]`) sesuai yang ditampilkan di halaman favorit soalmu.
+   (File ini sudah disalin di Langkah 5.)
+2. **Jalankan build_runner lagi** → `favorite.g.dart` diperbarui sesuai field baru.
+3. Sesuaikan `Favorite(...)` di detail (`[UBAH-DETAIL-3]`) dan field di halaman favorit (`[UBAH-FAVSCREEN-1]`).
+4. **Stop lalu jalankan ulang aplikasi** (bukan hot reload), karena `main()` hanya berjalan sekali saat aplikasi dibuka.
+5. Jika muncul error saat membuka favorit setelah field diubah → **uninstall aplikasi di emulator** (data favorit lama
+   masih berbentuk field lama), lalu jalankan lagi.
 
 ### Langkah 10 — Endpoint tambahan (Kasus B)
 
@@ -645,6 +721,7 @@ dev_dependencies:
 dart run build_runner build --delete-conflicting-outputs
 ```
 Akan muncul `lib/models/user.g.dart` yang berisi `UserAdapter`.
+(Penjelasan lengkap & jalan pintas menyalin `user.g.dart`: [bagian 4.1](#41-apa-itu-build_runner-tidak-otomatis).)
 
 **Langkah 4: `main.dart`**, minimal berisi ini:
 ```dart
@@ -1001,8 +1078,11 @@ Operasi Hive yang dipakai:
 - `typeId` harus beda dengan model Hive lain.
 - Jalankan `dart run build_runner build --delete-conflicting-outputs`.
 
-**F2: `main.dart`** — daftarkan & buka box (`[UBAH-MAIN-2]` dan `[UBAH-MAIN-3]`):
+**F2: `main.dart`** — daftarkan & buka box (`[UBAH-MAIN-2]` dan `[UBAH-MAIN-3]`).
+Lakukan **setelah** F1 & build_runner, lalu **stop dan jalankan ulang** aplikasi:
 ```dart
+import 'models/favorite.dart';
+
 Hive.registerAdapter(FavoriteAdapter());
 await Hive.openBox<Favorite>('favorites');
 ```
