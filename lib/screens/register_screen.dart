@@ -2,7 +2,15 @@
 // REGISTER SCREEN (Modul VI - Hive)
 // =============================================================
 // Membuat akun baru dan menyimpannya ke Hive box 'users'.
-// Akun inilah yang nanti dipakai untuk login.
+// Akun inilah yang nanti dicocokkan saat login.
+//
+// ALUR:
+//   1. Validasi: kosong?              -> SnackBar merah
+//   2. Username sudah dipakai?        -> SnackBar merah
+//   3. Simpan: box.put(username, User(...))
+//   4. SnackBar hijau, lalu kembali ke Login (Navigator.pop)
+//
+// 🟢 FILE INI BISA DISALIN UTUH ke proyek baru.
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
@@ -19,6 +27,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
 
+  // SnackBar merah untuk pesan error
   void _showError(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message), backgroundColor: Colors.red),
@@ -29,33 +38,44 @@ class _RegisterScreenState extends State<RegisterScreen> {
     final username = _usernameController.text.trim();
     final password = _passwordController.text.trim();
 
-    // Validasi input kosong
+    // ----- VALIDASI 1: tidak boleh kosong -----
     if (username.isEmpty || password.isEmpty) {
       _showError('Username dan password tidak boleh kosong!');
       return;
     }
+    // (Jika soal minta, tambahkan validasi lain di sini, contoh:)
+    // if (password.length < 6) {
+    //   _showError('Password minimal 6 karakter!');
+    //   return;
+    // }
 
+    // Box 'users' sudah dibuka di main.dart
     final box = Hive.box<User>('users');
 
-    // Cek apakah username sudah dipakai akun lain
+    // ----- VALIDASI 2: username belum dipakai -----
+    // containsKey(key) -> true jika key tersebut sudah ada di box
     if (box.containsKey(username)) {
       _showError('Username sudah terdaftar, gunakan username lain!');
       return;
     }
 
-    // Simpan akun dengan key = username.
-    // box.put(key, value) -> kalau pakai box.add() key-nya otomatis angka,
-    // tapi dengan put kita bisa mencari akun langsung dengan box.get(username)
+    // ----- SIMPAN AKUN -----
+    // box.put(KEY, VALUE)
+    //   KEY   = username  -> saat login cukup box.get(username)
+    //   VALUE = object User
+    // (Kalau pakai box.add(), key-nya otomatis 0,1,2... sehingga untuk
+    //  mencari akun harus mengecek satu per satu.)
     await box.put(username, User(username: username, password: password));
 
     if (mounted) {
+      // SnackBar hijau sebagai tanda berhasil
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Register berhasil, silakan login!'),
           backgroundColor: Colors.green,
         ),
       );
-      // Kembali ke halaman login
+      // pop = tutup halaman ini -> kembali ke halaman sebelumnya (Login)
       Navigator.pop(context);
     }
   }
@@ -70,8 +90,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // AppBar otomatis memunculkan tombol back karena halaman ini
-      // dibuka dengan Navigator.push
+      // AppBar OTOMATIS memunculkan tombol back (←) karena halaman ini
+      // dibuka dengan Navigator.push dari Login
       appBar: AppBar(title: const Text('Register'), centerTitle: true),
       body: Center(
         child: SingleChildScrollView(
@@ -95,7 +115,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               const SizedBox(height: 16),
               TextField(
                 controller: _passwordController,
-                obscureText: true,
+                obscureText: true, // sembunyikan password
                 decoration: InputDecoration(
                   labelText: 'Password',
                   border: OutlineInputBorder(

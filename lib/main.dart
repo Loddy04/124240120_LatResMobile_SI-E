@@ -1,43 +1,77 @@
 // =============================================================
-// MAIN.DART - titik awal aplikasi
+// MAIN.DART - titik awal aplikasi (yang PERTAMA dijalankan)
 // =============================================================
+// ALUR APLIKASI:
+//
+//   main()
+//    ├─ siapkan Hive (box 'users' & 'favorites')
+//    ├─ baca SharedPreferences 'isLogin'
+//    └─ runApp(MainApp)
+//         ├─ isLogin == true  -> HomeScreen   (langsung masuk)
+//         └─ isLogin == false -> LoginScreen  <-> RegisterScreen
+//
+//   HomeScreen  -> klik menu  -> ListScreen  -> klik item -> DetailScreen
+//                               (ikon ♥)    -> FavoriteScreen
+//
+// PEMBAGIAN PENYIMPANAN:
+//   - Hive              : data berbentuk object (akun, favorit)
+//   - SharedPreferences : data kecil key-value (status login, username)
+//
+// SAAT RESPONSI: cari [UBAH-MAIN-1] sampai [UBAH-MAIN-5].
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+// 🔧 [UBAH-MAIN-1] IMPORT
+// Sesuaikan dengan nama file model Hive & halaman yang kamu pakai.
 import 'models/favorite.dart';
 import 'models/user.dart';
 import 'screens/home_screen.dart';
 import 'screens/login_screen.dart';
 
-// main() dibuat async karena kita perlu menunggu (await) Hive dan
-// SharedPreferences siap sebelum aplikasi dijalankan.
+// main() dibuat "async" karena di dalamnya ada proses yang harus
+// ditunggu ("await") sebelum aplikasi tampil.
 void main() async {
-  // Memastikan Flutter sudah siap sebelum memanggil kode async
-  // di main(). Tanpa ini aplikasi bisa crash (Modul VI).
+  // WAJIB jika main() memakai await sebelum runApp.
+  // Memastikan Flutter sudah siap berkomunikasi dengan sistem HP.
+  // Tanpa baris ini aplikasi bisa crash saat dibuka (Modul VI).
   WidgetsFlutterBinding.ensureInitialized();
 
   // ---------- HIVE ----------
-  // 1. Inisialisasi Hive & tentukan lokasi penyimpanan database
+  // 1. Inisialisasi Hive & tentukan lokasi penyimpanan di HP
   await Hive.initFlutter();
-  // 2. Daftarkan adapter (hasil generate build_runner) agar Hive
-  //    mengerti cara menyimpan object User & Favorite
+
+  // 🔧 [UBAH-MAIN-2] DAFTARKAN ADAPTER
+  // Adapter (dari file .g.dart hasil build_runner) mengajari Hive cara
+  // menyimpan object kita. Nama adapter = NamaClass + "Adapter".
+  // Satu baris untuk setiap model Hive.
   Hive.registerAdapter(UserAdapter());
   Hive.registerAdapter(FavoriteAdapter());
-  // 3. Buka box (anggap saja "tabel") yang akan dipakai
+
+  // 🔧 [UBAH-MAIN-3] BUKA BOX
+  // Box = "tabel" penyimpanan. Harus dibuka SEBELUM dipakai.
+  // Nama box di sini HARUS SAMA dengan yang dipakai di halaman lain:
+  //   'users'     -> login_screen.dart & register_screen.dart
+  //   'favorites' -> detail_screen.dart & favorite_screen.dart
   await Hive.openBox<User>('users');
   await Hive.openBox<Favorite>('favorites');
 
   // ---------- SHARED PREFERENCES ----------
   // Cek apakah user sebelumnya sudah login (dan belum logout).
-  // Jika iya, aplikasi langsung membuka HomeScreen tanpa login ulang.
+  // getBool('isLogin') -> true / false / null (jika belum pernah disimpan).
+  // "?? false" -> kalau null, anggap belum login.
+  // Key 'isLogin' & 'username' HARUS SAMA dengan di login_screen.dart
+  // dan fungsi _logout di home_screen.dart.
   final prefs = await SharedPreferences.getInstance();
   final bool isLogin = prefs.getBool('isLogin') ?? false;
   final String username = prefs.getString('username') ?? '';
 
+  // Jalankan aplikasi, sambil mengirim status login ke MainApp
   runApp(MainApp(isLogin: isLogin, username: username));
 }
 
+// Widget paling atas aplikasi.
+// StatelessWidget karena isinya tidak pernah berubah.
 class MainApp extends StatelessWidget {
   final bool isLogin;
   final String username;
@@ -47,18 +81,22 @@ class MainApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      debugShowCheckedModeBanner: false,
+      debugShowCheckedModeBanner: false, // hilangkan pita "DEBUG" di pojok
+      // 🔧 [UBAH-MAIN-4] JUDUL & TEMA
+      // Tema berlaku untuk SEMUA halaman. Ganti warna di sini saja.
       title: 'Spaceflight News',
-      // Tema global: AppBar biru-ungu dengan teks putih seperti contoh soal
       theme: ThemeData(
         useMaterial3: true,
+        // warna dasar; warna tombol, chip, dll. diturunkan dari sini
         colorSchemeSeed: const Color(0xFF5B63F5),
         appBarTheme: const AppBarTheme(
-          backgroundColor: Color(0xFF5B63F5),
-          foregroundColor: Colors.white,
+          backgroundColor: Color(0xFF5B63F5), // warna AppBar
+          foregroundColor: Colors.white, // warna teks & ikon di AppBar
         ),
       ),
-      // Halaman pertama ditentukan oleh status login di SharedPreferences
+      // 🔧 [UBAH-MAIN-5] HALAMAN PERTAMA
+      // Kondisi ? jikaTrue : jikaFalse  (ternary operator)
+      // Ganti HomeScreen dengan halaman utamamu jika namanya berbeda.
       home: isLogin ? HomeScreen(username: username) : const LoginScreen(),
     );
   }

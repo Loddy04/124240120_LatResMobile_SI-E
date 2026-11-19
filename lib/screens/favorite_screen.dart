@@ -1,43 +1,63 @@
 // =============================================================
 // FAVORITE SCREEN - Halaman Favorite
 // =============================================================
-// Menampilkan SEMUA data favorite (news, blog, report jadi satu).
-// Memakai ValueListenableBuilder sehingga list otomatis ter-update,
-// baik perubahan dilakukan di halaman ini maupun di halaman detail.
+// Menampilkan SEMUA data favorit (news, blog, report jadi satu)
+// yang tersimpan di Hive box 'favorites'.
+//
+// KENAPA LIST INI SELALU TER-UPDATE?
+//   Karena dibungkus ValueListenableBuilder yang "mendengarkan" box.
+//   Setiap ada put/delete (dari halaman Detail MAUPUN dari halaman ini),
+//   builder dijalankan ulang -> list digambar ulang otomatis.
+//   (Soal: "list favourite terupdate terlepas dilakukannya perubahan
+//    di halaman favourite maupun dari halaman detil")
+//
+// ALUR:
+//   box kosong?  -> pesan "Belum ada data favorite"
+//   ada isinya   -> box.values.toList() -> ListView
+//   tombol ♥     -> fav.delete()  -> item hilang dari list
+//   klik item    -> buka DetailScreen lagi (pakai menu & itemId)
+//
+// SAAT RESPONSI: cari [UBAH-FAVSCREEN-1] & [UBAH-FAVSCREEN-2].
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
 import '../models/favorite.dart';
 import 'detail_screen.dart';
 
+// StatelessWidget cukup: perubahan tampilan diurus ValueListenableBuilder,
+// bukan setState.
 class FavoriteScreen extends StatelessWidget {
   const FavoriteScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    // Halaman ini cukup StatelessWidget karena perubahan UI
-    // sudah diurus oleh ValueListenableBuilder, bukan setState
     return Scaffold(
       appBar: AppBar(title: const Text('Favorite')),
+      // ⚠️ BAGIAN ValueListenableBuilder INI JANGAN DIUBAH
       body: ValueListenableBuilder(
-        // listenable() -> memberi tahu builder setiap ada perubahan di box
+        // .listenable() (dari package hive_flutter) = mengubah box menjadi
+        // sesuatu yang bisa "didengarkan"
         valueListenable: Hive.box<Favorite>('favorites').listenable(),
+        // builder dijalankan ulang SETIAP KALI isi box berubah
         builder: (context, Box<Favorite> box, _) {
-          // Jika belum ada favorite, tampilkan pesan
+          // ----- Favorit masih kosong -----
           if (box.isEmpty) {
             return const Center(child: Text('Belum ada data favorite'));
           }
 
-          // Ambil semua data favorite menjadi List
+          // ----- Ambil semua data favorit -----
+          // box.values = semua isi box, .toList() = jadikan List
           final favorites = box.values.toList();
 
           return ListView.builder(
             itemCount: favorites.length,
             itemBuilder: (context, index) {
-              final fav = favorites[index];
+              final fav = favorites[index]; // satu data favorit (object Favorite)
               return Card(
                 margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 child: ListTile(
+                  // 🔧 [UBAH-FAVSCREEN-1] FIELD YANG DITAMPILKAN
+                  // (harus ada di models/favorite.dart)
                   leading: SizedBox(
                     width: 64,
                     height: 48,
@@ -55,14 +75,17 @@ class FavoriteScreen extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                   ),
                   subtitle: Text(fav.author),
-                  // Tombol hati merah -> hapus dari favorite.
-                  // Setelah dihapus, ValueListenableBuilder otomatis
-                  // membangun ulang list sehingga item langsung hilang.
+                  // ----- HAPUS FAVORIT -----
+                  // Tombol ♥ merah di kanan. Setelah dihapus,
+                  // ValueListenableBuilder otomatis menggambar ulang list
+                  // sehingga item langsung hilang.
                   trailing: IconButton(
                     icon: const Icon(Icons.favorite, color: Colors.red),
                     tooltip: 'Hapus dari favorite',
                     onPressed: () {
-                      // fav adalah HiveObject, jadi bisa langsung delete()
+                      // fav adalah HiveObject, jadi bisa menghapus DIRINYA
+                      // SENDIRI dengan .delete() tanpa perlu tahu key-nya.
+                      // (Sama saja dengan: box.delete(Favorite.makeKey(fav.menu, fav.itemId)))
                       fav.delete();
                       ScaffoldMessenger.of(context).hideCurrentSnackBar();
                       ScaffoldMessenger.of(context).showSnackBar(
@@ -76,6 +99,7 @@ class FavoriteScreen extends StatelessWidget {
                       context,
                       MaterialPageRoute(
                         builder: (context) =>
+                            // 🔧 [UBAH-FAVSCREEN-2] data yang dikirim ke DetailScreen
                             DetailScreen(menu: fav.menu, id: fav.itemId),
                       ),
                     );

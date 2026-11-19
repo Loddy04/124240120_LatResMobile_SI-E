@@ -12,10 +12,12 @@ Daftar isi:
 6. [⭐ RESEP: langkah demi langkah saat responsi](#6--resep-langkah-demi-langkah-saat-responsi)
 7. [🔐 Login, Register & Logout (lengkap)](#7--login-register--logout-lengkap)
 8. [🔔 Notifikasi (lengkap)](#8--notifikasi-lengkap)
-9. [Referensi isi tiap file](#9-referensi-isi-tiap-file)
-10. [Contoh lengkap: mengubah ke API lain](#10-contoh-lengkap-mengubah-ke-api-lain)
-11. [Error yang sering muncul](#11-error-yang-sering-muncul)
-12. [Branch mana yang dicontek?](#12-branch-mana-yang-dicontek)
+9. [💖 Favorit: tambah, tampilkan, hapus (lengkap)](#9--favorit-lengkap)
+10. [🔍 Filter & Search (lengkap)](#10--filter--search-lengkap)
+11. [Referensi isi tiap file](#11-referensi-isi-tiap-file)
+12. [Contoh lengkap: mengubah ke API lain](#12-contoh-lengkap-mengubah-ke-api-lain)
+13. [Error yang sering muncul](#13-error-yang-sering-muncul)
+14. [Branch mana yang dicontek?](#14-branch-mana-yang-dicontek)
 
 > **Saat responsi, langsung buka [bagian 6 (RESEP)](#6--resep-langkah-demi-langkah-saat-responsi)** dan ikuti urutannya.
 > Bagian 1–5 untuk memahami konsepnya.
@@ -194,15 +196,15 @@ dev_dependencies:
 Link API ditulis di **`lib/api/api_service.dart`**:
 
 ```dart
-// baris 16: potongan AWAL link (bagian yang sama untuk semua endpoint)
+// [UBAH-API-1]: potongan AWAL link (bagian yang sama untuk semua endpoint)
 static const String baseUrl = 'https://api.spaceflightnewsapi.net/v4';
 
-// baris 20: link disambung saat dipakai
+// di dalam fungsi getList: link disambung saat dipakai
 final response = await http.get(Uri.parse('$baseUrl/$menu/'));
 ```
 
-`$baseUrl` dan `$menu` = variabel yang ditempel ke dalam teks. Nilai `menu` berasal dari tombol di Home
-(`home_screen.dart` baris 48: `menu: 'articles'`). Hasilnya:
+`$baseUrl` dan `$menu` = variabel yang ditempel ke dalam teks. Nilai `menu` berasal dari kartu di Home
+(`home_screen.dart`, penanda `[UBAH-HOME-1]`: `menu: 'articles'`). Hasilnya:
 
 ```
 '$baseUrl/$menu/'
@@ -213,30 +215,32 @@ final response = await http.get(Uri.parse('$baseUrl/$menu/'));
 
 ### Urutan kode berjalan saat user klik "News"
 
+(Kolom kiri = file & lokasi. Cari penandanya dengan `Ctrl+F`.)
+
 ```
-① home_screen.dart:113      klik kartu News
-                            → Navigator.push(ListScreen(title: 'News', menu: 'articles'))
+① home_screen.dart   _MenuCard → onTap         klik kartu News
+                                               → Navigator.push(ListScreen(title: 'News', menu: 'articles'))
         ↓
-② list_screen.dart:34-36    halaman List terbuka → initState() → fetchItems()
-   list_screen.dart:47      fetchItems memanggil: ApiService.getList(widget.menu)
+② list_screen.dart   initState()               halaman List terbuka → fetchItems()
+   list_screen.dart   [UBAH-LIST-1]             fetchItems memanggil: ApiService.getList(widget.menu)
         ↓
-③ api_service.dart:20       http.get('https://.../v4/articles/')   ← ke internet
-   api_service.dart:24      jsonDecode(response.body)              ← teks JSON → Map/List
-   api_service.dart:26      data['results']                        ← buka laci "results"
-   api_service.dart:28      SpaceItem.fromJson(json) untuk tiap item
+③ api_service.dart   getList                   http.get('https://.../v4/articles/')   ← ke internet
+                                               jsonDecode(response.body)              ← teks JSON → Map/List
+   api_service.dart   [UBAH-API-2]              data['results']                        ← buka laci "results"
+                                               SpaceItem.fromJson(json) untuk tiap item
         ↓
-④ space_item.dart:44-55     fromJson: json['title'] → title, json['news_site'] → author, ...
+④ space_item.dart    [UBAH-MODEL-3]            fromJson: json['title'] → title, json['news_site'] → author, ...
         ↓
-⑤ list_screen.dart:48-51    setState(() { items = data; isLoading = false; })
-                            → "data sudah datang, gambar ulang layarnya"
+⑤ list_screen.dart   fetchItems → setState     setState(() { items = data; isLoading = false; })
+                                               → "data sudah datang, gambar ulang layarnya"
         ↓
-⑥ list_screen.dart:152-178  ListView.builder: Text(item.title), Text(item.author), Image.network(item.imageUrl)
+⑥ list_screen.dart   [UBAH-LIST-3] s/d [-5]    ListView.builder: Image.network(item.imageUrl), Text(item.title), Text(item.author)
         ↓
    klik salah satu item
         ↓
-⑦ list_screen.dart:185      Navigator.push(DetailScreen(menu: 'articles', id: item.id))
-   detail_screen.dart:46    ApiService.getDetail(widget.menu, widget.id)
-   api_service.dart:37      http.get('https://.../v4/articles/40887/')  → satu object → fromJson
+⑦ list_screen.dart   [UBAH-LIST-6]             Navigator.push(DetailScreen(menu: 'articles', id: item.id))
+   detail_screen.dart [UBAH-DETAIL-2]          ApiService.getDetail(widget.menu, widget.id)
+   api_service.dart   [UBAH-API-3]              http.get('https://.../v4/articles/40887/')  → satu object → fromJson
 ```
 
 **Kesimpulan:**
@@ -249,7 +253,22 @@ final response = await http.get(Uri.parse('$baseUrl/$menu/'));
 
 ## 6. ⭐ RESEP: langkah demi langkah saat responsi
 
-Ikuti berurutan. Setiap langkah menyebut **file mana yang disalin dari `main`** dan **baris mana yang diganti**.
+Ikuti berurutan. Setiap langkah menyebut **file mana yang disalin dari `main`** dan **bagian mana yang diganti**.
+
+> **🔧 Penanda `[UBAH-...]`:** di kode branch `main`, setiap bagian yang perlu diganti saat soal berbeda
+> diberi komentar `// 🔧 [UBAH-XXX-n]`. Tekan `Ctrl+F` lalu ketik `[UBAH` untuk melompat ke semuanya.
+>
+> | Penanda | File |
+> |---|---|
+> | `[UBAH-MODEL-1..3]` | `lib/models/space_item.dart` |
+> | `[UBAH-API-1..3]` | `lib/api/api_service.dart` |
+> | `[UBAH-MAIN-1..5]` | `lib/main.dart` |
+> | `[UBAH-LOGIN-1..2]` | `lib/screens/login_screen.dart` |
+> | `[UBAH-HOME-1]` | `lib/screens/home_screen.dart` |
+> | `[UBAH-LIST-1..6]` | `lib/screens/list_screen.dart` |
+> | `[UBAH-DETAIL-1..5]` | `lib/screens/detail_screen.dart` |
+> | `[UBAH-FAV-1]` | `lib/models/favorite.dart` |
+> | `[UBAH-FAVSCREEN-1..2]` | `lib/screens/favorite_screen.dart` |
 
 > **Trik Find & Replace:** setelah menyalin file, tekan `Ctrl+H` di editor untuk mengganti semua kata sekaligus.
 > Contoh: ganti semua `SpaceItem` → `Game`, dan `space_item.dart` → `game.dart`.
@@ -271,7 +290,7 @@ Ikuti berurutan. Setiap langkah menyebut **file mana yang disalin dari `main`** 
 |---|---|---|
 | `lib/screens/login_screen.dart` | `main` (dengan register) / `alternatif-sib` (tanpa register) | import & halaman tujuan setelah login ([bagian 7](#7--login-register--logout-lengkap)) |
 | `lib/main.dart` | `main` | adapter, box, tema, halaman awal (Langkah 5) |
-| Fungsi `_logout` | `main` (`home_screen.dart` baris 20–36) | halaman tempat tombol logout berada |
+| Fungsi `_logout` | `main` (`home_screen.dart`, bagian `LOGOUT`) | halaman tempat tombol logout berada |
 | `lib/screens/main_screen.dart` (BottomNavigationBar) | `alternatif-sib` / `alternatif-rickmorty` | daftar halaman tiap tab, label & ikon |
 | `pubspec.yaml` (bagian dependencies) | `main` (+ notif dari `alternatif-sib`) | pilih package yang dipakai |
 | `AndroidManifest.xml` (permission & receiver) | `main` / `alternatif-sib` | tempel di posisi yang benar |
@@ -319,9 +338,9 @@ sebelum lanjut ke API. Kalau login sudah jalan, sepertiga soal biasanya sudah am
 
 1. Salin `lib/models/space_item.dart` → ganti nama file sesuai datanya, misal `lib/models/game.dart`.
 2. `Ctrl+H`: `SpaceItem` → `Game`.
-3. Ubah **daftar field** (baris 23–29) sesuai data yang diminta soal di halaman list **dan** detail.
-4. Ubah **constructor** (baris 31–39) agar sama dengan daftar field.
-5. Ubah **isi `fromJson`** (baris 44–56): `json['...']` diisi key dari lembar kerja.
+3. **`[UBAH-MODEL-1]`** ubah **daftar field** sesuai data yang diminta soal di halaman list **dan** detail.
+4. **`[UBAH-MODEL-2]`** ubah **constructor** agar sama dengan daftar field.
+5. **`[UBAH-MODEL-3]`** ubah **isi `fromJson`**: `json['...']` diisi key dari lembar kerja.
 
 ```dart
 class Game {
@@ -347,7 +366,7 @@ class Game {
 
 1. Salin `lib/api/api_service.dart` ke `lib/api/api_service.dart`.
 2. `Ctrl+H`: `SpaceItem` → nama model-mu, `space_item.dart` → nama file model-mu.
-3. Ganti **`baseUrl`** (baris 16) dengan bagian link yang sama di semua endpoint.
+3. **`[UBAH-API-1]`** ganti **`baseUrl`** dengan bagian link yang sama di semua endpoint.
    - Endpoint `https://www.freetogame.com/api/games` dan `https://www.freetogame.com/api/game?id=1`
    - → `baseUrl = 'https://www.freetogame.com/api'`
 4. Tulis fungsi untuk **setiap endpoint** memakai template di bawah.
@@ -414,20 +433,20 @@ static Future<Game> getGameDetail(int id) async {
 
 Salin `lib/main.dart`, lalu cek:
 
-| Baris | Isi | Ubah jika |
+| Penanda | Isi | Ubah jika |
 |---|---|---|
-| 8–11 | import | nama file model/halaman berbeda |
-| 25–26 | `Hive.registerAdapter(...)` | adapter berbeda (nama = `NamaModel` + `Adapter`) |
-| 28–29 | `Hive.openBox<...>('...')` | nama box berbeda / tidak pakai favorit Hive (hapus barisnya) |
-| 51–59 | `title` & `theme` | ganti judul & warna aplikasi |
-| 62 | `home: isLogin ? HomeScreen(...) : LoginScreen()` | nama halaman utamamu berbeda |
+| `[UBAH-MAIN-1]` | import | nama file model/halaman berbeda |
+| `[UBAH-MAIN-2]` | `Hive.registerAdapter(...)` | adapter berbeda (nama = `NamaModel` + `Adapter`) |
+| `[UBAH-MAIN-3]` | `Hive.openBox<...>('...')` | nama box berbeda / tidak pakai favorit Hive (hapus barisnya) |
+| `[UBAH-MAIN-4]` | `title` & `theme` | ganti judul & warna aplikasi |
+| `[UBAH-MAIN-5]` | `home: isLogin ? HomeScreen(...) : LoginScreen()` | nama halaman utamamu berbeda |
 
 ### Langkah 6 — Halaman utama
 
 Pilih sesuai soal:
 
 **(a) Soal punya beberapa menu (Kasus A)** → salin `lib/screens/home_screen.dart`.
-Setiap kartu menu adalah satu blok `_MenuCard` (baris 46–66):
+Setiap kartu menu adalah satu blok `_MenuCard` (penanda `[UBAH-HOME-1]`):
 ```dart
 const _MenuCard(
   title: 'News',                // teks yang tampil di kartu
@@ -440,7 +459,7 @@ const _MenuCard(
 - `menu` inilah yang nanti ditempel ke link: `'$baseUrl/$menu/'`.
 
 **(b) Soal langsung menampilkan list** (tanpa menu) → halaman list (Langkah 7) **dijadikan halaman utama**.
-Di `main.dart` baris 62 dan `login_screen.dart` baris 68, ganti `HomeScreen(...)` dengan halaman list-mu.
+Di `main.dart` `[UBAH-MAIN-5]` dan `login_screen.dart` `[UBAH-LOGIN-1]` & `[UBAH-LOGIN-2]`, ganti `HomeScreen(...)` dengan halaman list-mu.
 
 **(c) Soal minta BottomNavigationBar** → salin `lib/screens/main_screen.dart` dari branch `alternatif-sib`,
 lalu isi daftar `_pages` dengan halaman-halamanmu.
@@ -449,43 +468,36 @@ lalu isi daftar `_pages` dengan halaman-halamanmu.
 
 1. Salin `lib/screens/list_screen.dart`.
 2. `Ctrl+H`: `SpaceItem` → nama model-mu, `space_item.dart` → nama file model-mu.
-3. Ganti baris-baris ini:
+3. Ganti bagian-bagian ini:
 
-| Baris | Isi di `main` | Ganti dengan |
+| Penanda | Isi di `main` | Ganti dengan |
 |---|---|---|
-| 47 | `ApiService.getList(widget.menu)` | fungsi list-mu, misal `ApiService.getGames()` |
-| 161 | `item.imageUrl` | field gambar di model-mu |
-| 173 | `item.title` | field judul di model-mu |
-| 178 | `item.author` | field lain yang diminta soal |
-| 185 | `DetailScreen(menu: widget.menu, id: item.id)` | sesuaikan dengan constructor DetailScreen-mu |
+| `[UBAH-LIST-1]` | `ApiService.getList(widget.menu)` | fungsi list-mu, misal `ApiService.getGames()` |
+| `[UBAH-LIST-2]` | `e.author` (di `authors` & `filteredItems`) | field yang difilter |
+| `[UBAH-LIST-3]` | `item.imageUrl` | field gambar di model-mu |
+| `[UBAH-LIST-4]` | `item.title` | field judul di model-mu |
+| `[UBAH-LIST-5]` | `item.author` | field lain yang diminta soal |
+| `[UBAH-LIST-6]` | `DetailScreen(menu: widget.menu, id: item.id)` | sesuaikan dengan constructor DetailScreen-mu |
 
-4. **Filter chip** (baris 62–69 dan 119–144):
-   - Soal minta filter berdasarkan field lain (misal genre)? Ganti `e.author` (baris 62 & 68) dengan `e.genre`.
-   - Soal **tidak** minta filter? Hapus baris 119–144, dan ganti `filteredItems` menjadi `items` (baris 150 & 152).
-   - Soal minta filter **lewat API** (Kasus C)? Lihat `character_screen.dart` di branch `alternatif-rickmorty`.
+4. **Filter**: lihat [bagian 10](#10--filter--search-lengkap) untuk semua variasinya.
 
 ### Langkah 8 — Halaman detail (salin & ubah)
 
 1. Salin `lib/screens/detail_screen.dart`.
 2. `Ctrl+H`: `SpaceItem` → nama model-mu, `space_item.dart` → nama file model-mu.
-3. Ganti baris-baris ini:
+3. Ganti bagian-bagian ini:
 
-| Baris | Isi di `main` | Ganti dengan |
+| Penanda | Isi di `main` | Ganti dengan |
 |---|---|---|
-| 20 | `required this.menu, required this.id` | jika tidak ada menu (bukan Kasus A), cukup `required this.id` (hapus juga variabel `menu`) |
-| 46 | `ApiService.getDetail(widget.menu, widget.id)` | fungsi detail-mu, misal `ApiService.getGameDetail(widget.id)` |
-| 163–200 | `data.imageUrl`, `data.title`, `data.author`, `data.publishedAt`, `data.summary` | field yang **wajib** tampil menurut soal. Tambah `Text(data.xxx)` jika perlu |
-| 76–82 | `Favorite(...)` | field yang disimpan ke favorit (lihat Langkah 9) |
-| 92 | `item!.url` | field link web (hapus fungsi `_openWeb` & tombolnya jika soal tidak minta) |
+| `[UBAH-DETAIL-1]` | `required this.menu, required this.id` | jika tidak ada menu (bukan Kasus A), cukup `required this.id` (hapus juga variabel `menu`) |
+| `[UBAH-DETAIL-2]` | `ApiService.getDetail(widget.menu, widget.id)` | fungsi detail-mu, misal `ApiService.getGameDetail(widget.id)` |
+| `[UBAH-DETAIL-3]` | `Favorite(...)` | field yang disimpan ke favorit (lihat Langkah 9) |
+| `[UBAH-DETAIL-4]` | `item!.url` | field link web (hapus fungsi `_openWeb` & tombolnya jika soal tidak minta) |
+| `[UBAH-DETAIL-5]` | `data.imageUrl`, `data.title`, `data.author`, `data.publishedAt`, `data.summary` | field yang **wajib** tampil menurut soal. Tambah `Text(data.xxx)` jika perlu |
 
-### Langkah 9 — Favorit (Hive)
+### Langkah 9 — Favorit
 
-1. Salin `lib/models/favorite.dart`. Ubah field-nya = data yang **ditampilkan di halaman favorit** + `id` (untuk membuka detail lagi).
-2. Jalankan build_runner lagi.
-3. Salin `lib/screens/favorite_screen.dart`. Ganti `fav.imageUrl` (45), `fav.title` (53), `fav.author` (57), dan `DetailScreen(...)` (79).
-4. Bagian `ValueListenableBuilder` (baris 24) **jangan diubah**: itulah yang membuat daftar favorit langsung ter-update.
-
-> Soal minta favorit di **SharedPreferences** (bukan Hive)? Lihat `favorite_service.dart` di branch `alternatif-rickmorty`.
+Ikuti **[bagian 9](#9--favorit-lengkap)**: menambah, menampilkan, menghapus, dan variasinya (Hive / SharedPreferences, swipe, tombol ♥ di list).
 
 ### Langkah 10 — Endpoint tambahan (Kasus B)
 
@@ -626,7 +638,7 @@ dev_dependencies:
 |---|---|
 | `lib/models/user.dart` | 🟢 tidak |
 | `lib/screens/register_screen.dart` | 🟢 tidak |
-| `lib/screens/login_screen.dart` | 🟡 baris 12 & 68 (lihat langkah 5) |
+| `lib/screens/login_screen.dart` | 🟡 `[UBAH-LOGIN-1]` & `[UBAH-LOGIN-2]` (lihat langkah 5) |
 
 **Langkah 3: generate adapter**
 ```
@@ -677,16 +689,16 @@ class MainApp extends StatelessWidget {
 
 **Langkah 5: arahkan login ke halaman utamamu.** Di `login_screen.dart`:
 
-| Baris | Isi | Ganti jika halaman utamamu berbeda |
+| Penanda | Isi | Ganti jika halaman utamamu berbeda |
 |---|---|---|
-| 12 | `import 'home_screen.dart';` | `import 'main_screen.dart';` (misalnya) |
-| 68 | `HomeScreen(username: username)` | `MainScreen(username: username)` atau `const MainScreen()` |
+| `[UBAH-LOGIN-1]` | `import 'home_screen.dart';` | `import 'main_screen.dart';` (misalnya) |
+| `[UBAH-LOGIN-2]` | `HomeScreen(username: username)` | `MainScreen(username: username)` atau `const MainScreen()` |
 
 > Halaman utama yang **menerima username** harus punya `final String username;` dan
-> `required this.username` di constructor-nya (lihat `home_screen.dart` baris 16–18).
+> `required this.username` di constructor-nya (lihat awal class `HomeScreen` di `home_screen.dart`).
 
 **Langkah 6: tombol logout.** Salin fungsi ini ke halaman yang punya tombol logout
-(dari `home_screen.dart` baris 20–36):
+(dari `home_screen.dart`, bagian berjudul `LOGOUT`):
 
 ```dart
 // import yang dibutuhkan:
@@ -904,7 +916,7 @@ NotificationService().showInstantNotification(
 );
 ```
 
-**Contoh di branch `main`:** di `detail_screen.dart` fungsi `_toggleFavorite`, setelah `favoriteBox.put(...)` (sekitar baris 83), tambahkan:
+**Contoh di branch `main`:** di `detail_screen.dart` fungsi `_toggleFavorite`, setelah `favoriteBox.put(...)` (ada komentar `Bonus notifikasi` di sana), tambahkan:
 ```dart
 NotificationService().showInstantNotification(
   id: item!.id,
@@ -940,7 +952,523 @@ NotificationService().scheduleNotification(
 
 ---
 
-## 9. Referensi isi tiap file
+## 9. 💖 Favorit (lengkap)
+
+### 9.1 Konsepnya
+
+```
+             TAMBAH: box.put(key, Favorite(...))
+ [Detail] ─────────────────────────────────────►  ┌──────────────────────┐
+    ▲  ♥      HAPUS: box.delete(key)                │ Hive box 'favorites' │
+    │                                               └──────────┬───────────┘
+    │                                                          │ "berubah!"
+    │                      ValueListenableBuilder mendengarkan │
+    │            ┌─────────────────────────────────────────────┤
+    │            ▼                                             ▼
+    │   ikon ♡/♥ di Detail                         [Favorite] list digambar ulang
+    └────────────── klik item ───────────────────  HAPUS: fav.delete()
+```
+
+- **Tempat menyimpan**: Hive box `'favorites'` (data tidak hilang walau aplikasi ditutup).
+- **Key**: setiap favorit disimpan dengan key unik (`"articles_40887"`), supaya mudah **dicek** (`containsKey`) dan **dihapus** (`delete`).
+- **Sinkron otomatis**: semua tampilan favorit dibungkus `ValueListenableBuilder` → begitu box berubah, tampilan ikut berubah, tanpa `setState`.
+
+Operasi Hive yang dipakai:
+
+| Kode | Artinya |
+|---|---|
+| `box.put(key, data)` | simpan (atau timpa jika key sudah ada) |
+| `box.get(key)` | ambil satu data berdasarkan key |
+| `box.containsKey(key)` | `true` jika key sudah ada → sudah difavoritkan |
+| `box.delete(key)` | hapus berdasarkan key |
+| `fav.delete()` | object Hive menghapus dirinya sendiri |
+| `box.values.toList()` | semua isi box sebagai List |
+| `box.length` / `box.isEmpty` | jumlah data / apakah kosong |
+| `box.clear()` | hapus SEMUA isi box |
+
+### 9.2 Pilih varian sesuai soal
+
+| Kalimat di soal | Varian | Contoh di |
+|---|---|---|
+| "favorit", "disimpan di local database / Hive" | **Hive** | `main` |
+| "simpan favorit menggunakan **Shared Preferences**" | **SharedPreferences** | `alternatif-rickmorty` |
+| "library", "koleksi", "tombol Get / Beli / Simpan" | **Hive** (konsepnya sama persis dengan favorit) | `alternatif-sib` |
+
+### 9.3 Varian Hive, langkah demi langkah (branch `main`)
+
+**F1: Model** — salin `lib/models/favorite.dart`.
+- `[UBAH-FAV-1]`: field = data yang **ditampilkan di halaman favorit** + id (untuk membuka detail lagi).
+- `typeId` harus beda dengan model Hive lain.
+- Jalankan `dart run build_runner build --delete-conflicting-outputs`.
+
+**F2: `main.dart`** — daftarkan & buka box (`[UBAH-MAIN-2]` dan `[UBAH-MAIN-3]`):
+```dart
+Hive.registerAdapter(FavoriteAdapter());
+await Hive.openBox<Favorite>('favorites');
+```
+
+**F3: Detail — siapkan box & key** (di dalam class `_DetailScreenState`):
+```dart
+final Box<Favorite> favoriteBox = Hive.box<Favorite>('favorites');
+String get favoriteKey => Favorite.makeKey(widget.menu, widget.id);
+// Jika tidak ada menu: String get favoriteKey => widget.id.toString();
+```
+
+**F4: Detail — fungsi TAMBAH / HAPUS** (`_toggleFavorite`):
+```dart
+void _toggleFavorite() {
+  if (item == null) return;
+  ScaffoldMessenger.of(context).hideCurrentSnackBar();
+
+  if (favoriteBox.containsKey(favoriteKey)) {
+    // sudah favorit -> HAPUS
+    favoriteBox.delete(favoriteKey);
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Dihapus dari favorite')),
+    );
+  } else {
+    // belum favorit -> TAMBAH
+    favoriteBox.put(
+      favoriteKey,
+      Favorite(                       // [UBAH-DETAIL-3]: sesuaikan field
+        menu: widget.menu,
+        itemId: item!.id,
+        title: item!.title,
+        author: item!.author,
+        imageUrl: item!.imageUrl,
+      ),
+    );
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Ditambahkan ke favorite')),
+    );
+  }
+}
+```
+
+**F5: Detail — ikon ♡/♥ yang berubah sendiri:**
+```dart
+ValueListenableBuilder(
+  valueListenable: favoriteBox.listenable(keys: [favoriteKey]),
+  builder: (context, Box<Favorite> box, _) {
+    final isFavorite = box.containsKey(favoriteKey);
+    return IconButton(
+      icon: Icon(
+        isFavorite ? Icons.favorite : Icons.favorite_border,
+        color: isFavorite ? Colors.red : Colors.white,
+      ),
+      onPressed: _toggleFavorite,
+    );
+  },
+),
+```
+Taruh di `AppBar(actions: [ ... ])`, atau di mana saja (misalnya sebagai tombol besar di bawah gambar).
+
+**F6: Halaman Favorite — MENAMPILKAN** (salin `lib/screens/favorite_screen.dart`):
+```dart
+body: ValueListenableBuilder(
+  valueListenable: Hive.box<Favorite>('favorites').listenable(),
+  builder: (context, Box<Favorite> box, _) {
+    if (box.isEmpty) {
+      return const Center(child: Text('Belum ada data favorite'));
+    }
+    final favorites = box.values.toList();
+    return ListView.builder(
+      itemCount: favorites.length,
+      itemBuilder: (context, index) {
+        final fav = favorites[index];
+        return ListTile(
+          title: Text(fav.title),          // [UBAH-FAVSCREEN-1]
+          subtitle: Text(fav.author),
+          ...
+        );
+      },
+    );
+  },
+),
+```
+
+**F7: Halaman Favorite — MENGHAPUS.** Pilih salah satu:
+
+(a) **Tombol** (dipakai di `main`):
+```dart
+trailing: IconButton(
+  icon: const Icon(Icons.favorite, color: Colors.red),   // atau Icons.delete
+  onPressed: () {
+    fav.delete();
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Dihapus dari favorite')),
+    );
+  },
+),
+```
+
+(b) **Swipe / geser** (bungkus `Card`/`ListTile` dengan `Dismissible`):
+```dart
+return Dismissible(
+  key: Key(fav.key.toString()),              // WAJIB unik. fav.key = key di box Hive
+  direction: DismissDirection.endToStart,    // geser dari kanan ke kiri
+  background: Container(
+    color: Colors.red,
+    alignment: Alignment.centerRight,
+    padding: const EdgeInsets.only(right: 20),
+    child: const Icon(Icons.delete, color: Colors.white),
+  ),
+  onDismissed: (direction) {
+    fav.delete();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('${fav.title} dihapus')),
+    );
+  },
+  child: ListTile(title: Text(fav.title), subtitle: Text(fav.author)),
+);
+```
+
+(c) **Dengan konfirmasi** (dialog "Yakin hapus?"):
+```dart
+onPressed: () async {
+  final yakin = await showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text('Hapus favorit?'),
+      content: Text(fav.title),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Batal')),
+        TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Hapus')),
+      ],
+    ),
+  );
+  if (yakin == true) fav.delete();
+},
+```
+
+**F8: Halaman Favorite — buka detail lagi** (`[UBAH-FAVSCREEN-2]`):
+```dart
+onTap: () {
+  Navigator.push(context, MaterialPageRoute(
+    builder: (context) => DetailScreen(menu: fav.menu, id: fav.itemId),
+  ));
+},
+```
+
+**F9: Cara membuka halaman Favorite** — `main` memakai ikon ♥ di AppBar halaman list:
+```dart
+actions: [
+  IconButton(
+    icon: const Icon(Icons.favorite),
+    onPressed: () => Navigator.push(
+      context, MaterialPageRoute(builder: (context) => const FavoriteScreen())),
+  ),
+],
+```
+Atau jadikan salah satu tab BottomNavigationBar (lihat `main_screen.dart` di `alternatif-sib`).
+
+### 9.4 Tambahan yang sering diminta
+
+**Tombol ♥ langsung di setiap item list** (tanpa membuka detail). Di `list_screen.dart`, bungkus `ListView.builder` dengan `ValueListenableBuilder`:
+```dart
+// import: hive_flutter & models/favorite.dart
+Expanded(
+  child: ValueListenableBuilder(
+    valueListenable: Hive.box<Favorite>('favorites').listenable(),
+    builder: (context, Box<Favorite> box, _) {
+      return ListView.builder(
+        itemCount: filteredItems.length,
+        itemBuilder: (context, index) {
+          final item = filteredItems[index];
+          final key = Favorite.makeKey(widget.menu, item.id);
+          final isFav = box.containsKey(key);
+          return ListTile(
+            title: Text(item.title),
+            trailing: IconButton(
+              icon: Icon(isFav ? Icons.favorite : Icons.favorite_border, color: Colors.red),
+              onPressed: () {
+                if (isFav) {
+                  box.delete(key);
+                } else {
+                  box.put(key, Favorite(
+                    menu: widget.menu, itemId: item.id, title: item.title,
+                    author: item.author, imageUrl: item.imageUrl,
+                  ));
+                }
+              },
+            ),
+          );
+        },
+      );
+    },
+  ),
+),
+```
+
+**Jumlah favorit** (misalnya di halaman profil / badge):
+```dart
+ValueListenableBuilder(
+  valueListenable: Hive.box<Favorite>('favorites').listenable(),
+  builder: (context, Box<Favorite> box, _) => Text('Favorit: ${box.length}'),
+),
+```
+
+**Hapus semua favorit**:
+```dart
+Hive.box<Favorite>('favorites').clear();
+```
+
+### 9.5 Varian SharedPreferences (branch `alternatif-rickmorty`)
+
+Dipakai jika soal **menyebut Shared Preferences** untuk favorit.
+
+1. **Model API butuh `toJson`** (kebalikan `fromJson`), karena SharedPreferences hanya bisa menyimpan teks. Contoh di `lib/models/character.dart`:
+   ```dart
+   Map<String, dynamic> toJson() {
+     return {'id': id, 'name': name, 'image': image, ...};   // key bebas, asal sama dengan fromJson
+   }
+   ```
+2. **Salin `lib/services/favorite_service.dart`**, lalu `Ctrl+H`: `Character` → nama model-mu, `character.dart` → nama file model-mu.
+3. **Muat favorit** setelah login & di `main.dart` jika sudah login:
+   ```dart
+   await FavoriteService.load(username);
+   ```
+4. **Tambah/hapus** (misalnya di detail):
+   ```dart
+   final bool nowFavorite = await FavoriteService.toggle(item!);
+   ```
+5. **Tampilkan & ikon berubah otomatis** — sama seperti Hive, tapi yang didengarkan adalah `FavoriteService.favorites`:
+   ```dart
+   ValueListenableBuilder<List<Character>>(
+     valueListenable: FavoriteService.favorites,
+     builder: (context, favorites, _) {
+       final isFav = favorites.any((f) => f.id == item!.id);
+       ...
+     },
+   ),
+   ```
+6. **Hapus**: `FavoriteService.remove(id)`. Contoh swipe ada di `favorite_screen.dart` branch tersebut.
+
+### 9.6 ⚠️ Yang WAJIB diperhatikan
+
+| Hal | Kenapa |
+|---|---|
+| Nama box `'favorites'` sama di `main.dart`, detail, dan halaman favorit | Beda nama → error "Box not found" |
+| Key dibuat dengan cara yang **sama** saat menyimpan, mengecek, dan menghapus (`Favorite.makeKey(...)`) | Beda cara → favorit tidak terdeteksi / tidak terhapus |
+| Pakai `box.put(key, ...)`, **bukan** `box.add(...)` | `add` membuat data dobel & sulit dicek |
+| Tampilan favorit dibungkus `ValueListenableBuilder` | Tanpa itu, list/ikon tidak ter-update otomatis |
+| Setelah mengubah `favorite.dart`, jalankan build_runner lagi | `FavoriteAdapter` harus dibuat ulang |
+| Ubah field model Hive setelah ada data tersimpan → error saat dibuka | Uninstall aplikasi di emulator (data lama terhapus), lalu jalankan lagi |
+
+---
+
+## 10. 🔍 Filter & Search (lengkap)
+
+### 10.1 Dua cara memfilter
+
+| | Filter **di aplikasi** | Filter **lewat API** |
+|---|---|---|
+| Cara kerja | Data diambil sekali, lalu disaring dengan `.where(...)` | Setiap pilihan berubah, request ulang ke endpoint dengan query (`?status=alive`) |
+| Kapan dipakai | Soal **tidak** memberi endpoint filter | Soal **memberi** endpoint filter (`/character?status=...`) |
+| Contoh | `main` (filter author) | `alternatif-rickmorty` (filter status & search nama) |
+
+### 10.2 Filter di aplikasi: chip dari data (branch `main`)
+
+Ada **3 bagian** di `list_screen.dart`:
+
+**(1) Variabel** — chip mana yang sedang aktif:
+```dart
+String? selectedAuthor;   // null = tidak ada filter, tampilkan semua
+```
+
+**(2) Dua getter** — daftar pilihan chip & data hasil filter (`[UBAH-LIST-2]`):
+```dart
+// daftar author UNIK dari data -> jadi chip
+List<String> get authors => items.map((e) => e.author).toSet().toList();
+
+// data yang DITAMPILKAN: semua, atau hanya yang author-nya cocok
+List<SpaceItem> get filteredItems {
+  if (selectedAuthor == null) return items;
+  return items.where((e) => e.author == selectedAuthor).toList();
+}
+```
+
+**(3) Tampilan chip** — baris chip yang bisa digeser ke samping:
+```dart
+SizedBox(
+  height: 56,                                // ListView horizontal WAJIB diberi tinggi
+  child: ListView(
+    scrollDirection: Axis.horizontal,
+    children: authors.map((author) {
+      return FilterChip(
+        label: Text(author),
+        selected: selectedAuthor == author,
+        onSelected: (selected) {
+          setState(() {
+            selectedAuthor = selected ? author : null;   // klik lagi = matikan filter
+          });
+        },
+      );
+    }).toList(),
+  ),
+),
+```
+Lalu `ListView.builder` memakai **`filteredItems`** (bukan `items`).
+
+**Mengganti field yang difilter**: ubah `e.author` di kedua getter menjadi field lain (`e.genre`, `e.platform`, `e.status`, ...).
+Jika tipe datanya bukan String, ubah juga `List<String>` dan `String?` sesuai tipenya.
+
+**Soal tidak minta filter**: hapus bagian (1), (2), (3), lalu ganti `filteredItems` → `items`.
+
+### 10.3 Variasi tampilan filter
+
+**Chip "Semua" di depan**:
+```dart
+children: [
+  ChoiceChip(
+    label: const Text('Semua'),
+    selected: selectedAuthor == null,
+    onSelected: (_) => setState(() => selectedAuthor = null),
+  ),
+  ...authors.map((author) => ChoiceChip(
+    label: Text(author),
+    selected: selectedAuthor == author,
+    onSelected: (_) => setState(() => selectedAuthor = author),
+  )),
+],
+```
+> `FilterChip` = ada tanda ✓ dan bisa dimatikan. `ChoiceChip` = pilih salah satu (seperti radio button).
+
+**Pilihan tetap** (bukan dari data), misalnya status:
+```dart
+final List<String> statusOptions = ['Alive', 'Dead', 'unknown'];
+// lalu pakai statusOptions.map(...) sebagai pengganti authors.map(...)
+// dan filter: items.where((e) => e.status == selectedStatus)
+```
+
+**Dropdown** sebagai pengganti chip:
+```dart
+DropdownButton<String?>(
+  value: selectedAuthor,
+  hint: const Text('Pilih author'),
+  items: [
+    const DropdownMenuItem(value: null, child: Text('Semua')),
+    ...authors.map((a) => DropdownMenuItem(value: a, child: Text(a))),
+  ],
+  onChanged: (value) => setState(() => selectedAuthor = value),
+),
+```
+
+### 10.4 Search di aplikasi (cari berdasarkan teks)
+
+**(1) Variabel**:
+```dart
+String searchQuery = '';
+```
+
+**(2) TextField** (taruh di atas chip / list):
+```dart
+Padding(
+  padding: const EdgeInsets.all(8),
+  child: TextField(
+    decoration: const InputDecoration(
+      hintText: 'Cari...',
+      prefixIcon: Icon(Icons.search),
+      border: OutlineInputBorder(),
+    ),
+    // onChanged dipanggil SETIAP huruf diketik
+    onChanged: (value) => setState(() => searchQuery = value),
+  ),
+),
+```
+
+**(3) Gabungkan dengan filter** di getter `filteredItems`:
+```dart
+List<SpaceItem> get filteredItems {
+  return items.where((e) {
+    // cocok author? (jika tidak ada filter, semua dianggap cocok)
+    final cocokAuthor = selectedAuthor == null || e.author == selectedAuthor;
+    // cocok pencarian? toLowerCase() supaya huruf besar/kecil tidak berpengaruh
+    final cocokSearch = e.title.toLowerCase().contains(searchQuery.toLowerCase());
+    return cocokAuthor && cocokSearch;
+  }).toList();
+}
+```
+
+**Pesan jika hasil kosong** (taruh sebelum `ListView.builder`):
+```dart
+if (filteredItems.isEmpty) {
+  return const Center(child: Text('Data tidak ditemukan'));
+}
+```
+
+### 10.5 Filter & search lewat API (branch `alternatif-rickmorty`)
+
+**(1) ApiService** — fungsi menerima parameter, lalu ditempel ke link:
+```dart
+static Future<List<Character>> getCharacters({String? status, String? name}) async {
+  final Map<String, String> query = {};
+  if (status != null && status.isNotEmpty) query['status'] = status;
+  if (name != null && name.isNotEmpty) query['name'] = name;
+
+  // hasil: /character?status=alive&name=rick
+  final uri = Uri.parse('$baseUrl/character').replace(
+    queryParameters: query.isEmpty ? null : query,
+  );
+  final response = await http.get(uri);
+
+  if (response.statusCode == 200) {
+    final data = jsonDecode(response.body);
+    final List<dynamic> results = data['results'];
+    return results.map((json) => Character.fromJson(json)).toList();
+  } else if (response.statusCode == 404) {
+    return [];   // API ini membalas 404 jika tidak ada hasil -> anggap kosong
+  } else {
+    throw Exception('Gagal memuat data');
+  }
+}
+```
+Versi singkat jika hanya satu parameter:
+```dart
+http.get(Uri.parse('$baseUrl/character?status=$status'));
+```
+
+**(2) Halaman** — setiap pilihan berubah, simpan pilihan lalu **ambil data lagi**:
+```dart
+String selectedStatus = '';             // '' = semua
+
+// di onSelected chip:
+onSelected: (_) {
+  setState(() => selectedStatus = 'alive');
+  fetchCharacters();                    // request ulang ke API
+},
+
+// di fetchCharacters():
+final data = await ApiService.getCharacters(
+  status: selectedStatus,
+  name: _searchController.text.trim(),
+);
+```
+
+**(3) Search lewat API** — pakai `onSubmitted` (saat tombol enter/cari ditekan), bukan `onChanged`, supaya tidak request ke API setiap huruf:
+```dart
+TextField(
+  controller: _searchController,
+  textInputAction: TextInputAction.search,
+  onSubmitted: (_) => fetchCharacters(),
+),
+```
+
+Kode lengkapnya ada di `lib/screens/character_screen.dart` branch `alternatif-rickmorty`.
+
+### 10.6 ⚠️ Yang WAJIB diperhatikan
+
+| Hal | Kenapa |
+|---|---|
+| `ListView.builder` memakai `filteredItems`, bukan `items` | Kalau `items`, filter tidak berpengaruh |
+| Ubah pilihan filter **di dalam `setState`** | Tanpa `setState`, layar tidak digambar ulang |
+| `items` asli **jangan diubah** saat memfilter | Kalau `items` ditimpa hasil filter, data lain hilang & tidak bisa kembali |
+| `ListView` horizontal untuk chip **wajib** diberi tinggi (`SizedBox(height: ...)`) | Tanpa tinggi → error "unbounded height" |
+| Nilai filter lewat API harus sama persis dengan yang diterima API (`alive`, bukan `Alive`, jika dokumentasinya begitu) | Salah nilai → hasil kosong / error |
+
+---
+
+## 11. Referensi isi tiap file
 
 Urutan pengerjaan dan status setiap file:
 
@@ -1063,7 +1591,7 @@ Sama polanya dengan list (initState -> fetch -> setState). Ubah:
 
 ---
 
-## 10. Contoh lengkap: mengubah ke API lain
+## 12. Contoh lengkap: mengubah ke API lain
 
 Misal soal memakai **FreeToGame**: `https://www.freetogame.com/api/games`
 
@@ -1131,7 +1659,7 @@ Selesai. **Kerangka kodenya tidak berubah sama sekali.**
 
 ---
 
-## 11. Error yang sering muncul
+## 13. Error yang sering muncul
 
 | Pesan error / gejala | Penyebab | Solusi |
 |---|---|---|
@@ -1147,7 +1675,7 @@ Selesai. **Kerangka kodenya tidak berubah sama sekali.**
 
 ---
 
-## 12. Branch mana yang dicontek?
+## 14. Branch mana yang dicontek?
 
 | Ciri soal | Branch |
 |---|---|

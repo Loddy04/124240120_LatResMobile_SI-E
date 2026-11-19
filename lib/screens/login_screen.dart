@@ -1,17 +1,28 @@
 // =============================================================
 // LOGIN SCREEN (Modul VI - Shared Preferences)
 // =============================================================
-// - Login hanya bisa memakai akun yang sudah di-register (disimpan di Hive)
-// - Jika gagal -> SnackBar merah
-// - Jika berhasil -> simpan status login ke SharedPreferences, lalu ke Home
+// ALUR:
+//   1. User mengisi username & password, lalu tekan "Login"
+//   2. Validasi: kosong?               -> SnackBar merah
+//   3. Cari akun di Hive box 'users'
+//      tidak ada / password salah?     -> SnackBar merah
+//   4. Berhasil -> simpan 'isLogin' & 'username' ke SharedPreferences
+//                  (supaya tetap login walau aplikasi ditutup)
+//   5. Pindah ke HomeScreen dengan pushReplacement
+//
+// 🟡 SALIN, UBAH SEDIKIT: cari [UBAH-LOGIN-1] & [UBAH-LOGIN-2]
+//    (hanya jika halaman utamamu bukan HomeScreen)
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/user.dart';
+// 🔧 [UBAH-LOGIN-1] import halaman tujuan setelah login berhasil
 import 'home_screen.dart';
 import 'register_screen.dart';
 
+// StatefulWidget karena halaman ini punya data yang berubah
+// (isi TextField) dan memakai controller.
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -20,57 +31,69 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  // Controller untuk membaca isi TextField
+  // TextEditingController = "remote" untuk membaca isi TextField.
+  // Cara baca: _usernameController.text
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
 
-  // Menampilkan SnackBar merah untuk pesan error
+  // Fungsi bantu: menampilkan SnackBar MERAH berisi pesan error.
+  // Dibuat fungsi supaya tidak menulis kode yang sama berulang kali.
   void _showError(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message), backgroundColor: Colors.red),
     );
   }
 
+  // async karena ada proses yang harus ditunggu (SharedPreferences)
   void _login() async {
+    // .trim() membuang spasi di awal & akhir input
     final username = _usernameController.text.trim();
     final password = _passwordController.text.trim();
 
-    // Validasi: field tidak boleh kosong
+    // ----- VALIDASI 1: tidak boleh kosong -----
     if (username.isEmpty || password.isEmpty) {
       _showError('Username dan password tidak boleh kosong!');
-      return;
+      return; // "return" = hentikan fungsi di sini, jangan lanjut login
     }
 
-    // Ambil box 'users' yang sudah dibuka di main.dart
+    // ----- VALIDASI 2: akun harus ada & password cocok -----
+    // Ambil box 'users' yang SUDAH DIBUKA di main.dart (tidak perlu openBox lagi)
     final box = Hive.box<User>('users');
     // Akun disimpan dengan key = username (lihat register_screen.dart),
-    // jadi kita bisa langsung mengambilnya dengan box.get(username)
+    // jadi bisa langsung diambil dengan box.get(username).
+    // Hasilnya User? (nullable): null jika username tidak terdaftar.
     final User? user = box.get(username);
 
-    // Cek apakah akun ada dan password-nya cocok
     if (user == null || user.password != password) {
       _showError('Login Gagal! Pastikan sudah Register atau cek password.');
       return;
     }
 
-    // Login berhasil -> simpan ke SharedPreferences (key-value)
+    // ----- LOGIN BERHASIL: simpan ke SharedPreferences -----
+    // Format: prefs.set<TipeData>('key', nilai)
+    //   setBool   -> true/false
+    //   setString -> teks
+    //   setInt    -> angka
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('isLogin', true);
-    await prefs.setString('username', username);
+    await prefs.setBool('isLogin', true); // dibaca di main.dart
+    await prefs.setString('username', username); // ditampilkan di Home
 
-    // "mounted" memastikan widget masih ada sebelum memakai context
-    // setelah proses async (await)
+    // "mounted" = apakah halaman ini masih tampil?
+    // WAJIB dicek sebelum memakai context SETELAH await, karena selama
+    // menunggu bisa saja halaman sudah ditutup.
     if (mounted) {
-      // pushReplacement: halaman login diganti oleh home,
-      // sehingga tombol back tidak kembali ke halaman login (Modul IV)
+      // pushReplacement: halaman Login DIGANTI Home (bukan ditumpuk),
+      // jadi tombol back di Home tidak kembali ke Login (Modul IV).
       Navigator.pushReplacement(
         context,
+        // 🔧 [UBAH-LOGIN-2] halaman tujuan setelah login berhasil
         MaterialPageRoute(builder: (context) => HomeScreen(username: username)),
       );
     }
   }
 
-  // dispose dipanggil saat halaman dihapus, untuk membersihkan controller
+  // dispose dipanggil saat halaman ditutup.
+  // Controller harus dibersihkan supaya tidak boros memori.
   @override
   void dispose() {
     _usernameController.dispose();
@@ -83,7 +106,8 @@ class _LoginScreenState extends State<LoginScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('Login'), centerTitle: true),
       body: Center(
-        // SingleChildScrollView supaya tidak overflow saat keyboard muncul
+        // SingleChildScrollView: halaman bisa di-scroll, mencegah error
+        // "overflow" (garis kuning-hitam) saat keyboard muncul
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
           child: Column(
@@ -92,13 +116,13 @@ class _LoginScreenState extends State<LoginScreen> {
                 'Silakan Login',
                 style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 24), // jarak kosong 24 pixel
               TextField(
-                controller: _usernameController,
+                controller: _usernameController, // hubungkan dengan controller
                 decoration: InputDecoration(
                   labelText: 'Username',
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(24),
+                    borderRadius: BorderRadius.circular(24), // sudut bulat
                   ),
                 ),
               ),
@@ -114,11 +138,13 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               ),
               const SizedBox(height: 24),
+              // onPressed: _login -> tanpa tanda (), karena kita
+              // MEMBERIKAN fungsinya, bukan menjalankannya sekarang
               ElevatedButton(onPressed: _login, child: const Text('Login')),
               const SizedBox(height: 8),
               TextButton(
-                // push biasa: halaman register ditumpuk di atas login,
-                // sehingga bisa kembali dengan tombol back
+                // push biasa: Register DITUMPUK di atas Login,
+                // jadi bisa kembali ke Login dengan tombol back / pop
                 onPressed: () {
                   Navigator.push(
                     context,
